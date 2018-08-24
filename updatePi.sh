@@ -1,1 +1,1 @@
-scp * pi@raspberrypi.local:~/Hall/
+rsync -av -e ssh --exclude='node_modules' * pi@raspberrypi.local:~/Hall/
