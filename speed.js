@@ -13,7 +13,7 @@ let fs = require('fs');
 	let WHEEL_CIRCUMFERENCE_IN_MILES = Math.PI * WHEEL_DIAMETER_IN_INCHES / INCHES_IN_A_MILE;
 	let WHEEL_RATIO = 27.896592409566857 / 6;
 	// TODO: Tweak the measurement interval.
-	let MEASUREMENT_INTERVAL = 1000;
+	let MEASUREMENT_INTERVAL = 3000;
 
 	runOnPi();
 
@@ -98,6 +98,13 @@ let fs = require('fs');
 		// TODO: Apply some smoothing over a short period of time? Like a 10 second average, perhaps.
 		fs.writeFileSync('./currentSpeed.txt', beltMilesPerHour, 'UTF-8');
 		// TODO: Calculate cadence based on fluctuations in the readings.
-		fs.writeFileSync('./currentCadence.txt', beltMilesPerHour > 0.5 ? 172 : 0, 'UTF-8');
+		fs.writeFileSync(
+			'./currentCadence.txt',
+			beltMilesPerHour > 0.5
+				? beltMilesPerHour >= 5
+				? 172
+				: 100
+				: 0,
+			'UTF-8');
 	}
 })();
