@@ -9,10 +9,10 @@ let fs = require('fs'),
 
 	let INPUT_PIN = 7;
 	let BUFFER_LENGTH = 2e7;
-	let MEASUREMENT_INTERVAL = 5000;
 	let WHEEL_DIAMETER_IN_INCHES = 4.5;
-	let WHEEL_RATIO = 27.896592409566857 / 6;
+	let WHEEL_RATIO = 27.259910958037132 / 5.8;
 	let AVERAGE_SIZE = 3;
+	let MEASUREMENT_INTERVAL = 4000;
 
 	let NANOSECONDS_IN_A_SECOND = 1e9;
 	let INCHES_IN_A_MILE = 63360;
@@ -83,10 +83,10 @@ let fs = require('fs'),
 	function calculateAndWriteResults(totalNanoseconds, counters) {
 		let onOutliers = calculateOutliers(counters.filter(c => c > 0)),
 			offOutliers = calculateOutliers(counters.filter(c => c < 0)),
-			firstChangedToOnIndex = counters.findIndex((count, index) => index > 0 && count > onOutliers.min && count < onOutliers.max),
-			lastChangedToOffIndex = counters.lastIndexOf(counters.slice().reverse().find((count, index) => index > 0 && count > offOutliers.min && count < offOutliers.max)),
-			// firstChangedToOnIndex = counters.findIndex((count, index) => index > 0 && count > 0),
-			// lastChangedToOffIndex = counters.lastIndexOf(counters.slice().reverse().find((count, index) => index > 0 && count > 0)),
+			// firstChangedToOnIndex = counters.findIndex((count, index) => index > 0 && count > onOutliers.min && count < onOutliers.max),
+			// lastChangedToOffIndex = counters.lastIndexOf(counters.slice().reverse().find((count, index) => index > 0 && count > offOutliers.min && count < offOutliers.max)),
+			firstChangedToOnIndex = counters.findIndex((count, index) => index > 0 && count > 0),
+			lastChangedToOffIndex = counters.lastIndexOf(counters.slice().reverse().find((count, index) => index > 0 && count > 0)),
 			usableCounters = counters.slice(firstChangedToOnIndex, lastChangedToOffIndex),
 			usableIterations = counters.reduce((total, current) => total + current, 0),
 			magnetCounter = usableCounters.filter(c => c > 0).length,
@@ -102,7 +102,7 @@ let fs = require('fs'),
 			beltMilesPerHour = wheelMilesPerHour / WHEEL_RATIO,
 			highs = findHighs(counters),
 			cadence = highs
-				? cleanCadence(highs / usableTotalSeconds * 60)
+				? cleanCadence(highs / (totalNanoseconds / NANOSECONDS_IN_A_SECOND) * 60)
 				: 0;
 
 		lastCadences.push(cadence);
@@ -128,8 +128,10 @@ let fs = require('fs'),
 		// 	fs.writeFileSync('./' + measurePrefix + '-' + (measureCounter++) + '.json', JSON.stringify(counters), 'UTF-8');
 		// 	console.log('measuring ' + measureCounter);
 		// }
-		fs.writeFileSync('./currentSpeed.txt', avg(lastSpeeds), 'UTF-8');
-		fs.writeFileSync('./currentCadence.txt', avg(lastCadences), 'UTF-8');
+		// fs.writeFileSync('./currentSpeed.txt', avg(lastSpeeds), 'UTF-8');
+		// fs.writeFileSync('./currentCadence.txt', avg(lastCadences), 'UTF-8');
+		fs.writeFileSync('./currentSpeed.txt', beltMilesPerHour, 'UTF-8');
+		fs.writeFileSync('./currentCadence.txt', cadence, 'UTF-8');
 	}
 })();
 
