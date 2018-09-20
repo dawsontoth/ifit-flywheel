@@ -14,7 +14,7 @@ let BUFFER_LENGTH = 2e7;
 let MEASUREMENT_INTERVAL = 4000;
 
 let WHEEL_DIAMETER_IN_INCHES = 4.5;
-let WHEEL_RATIO = 27.259910958037132 / 5.8;
+let WHEEL_RATIO = 28.040012588181213 / 6.0;
 let AVERAGE_SIZE = 3;
 let MINIMUM_SPEED = 0.8;
 
@@ -123,15 +123,16 @@ function calculateAndWriteResults(totalNanoseconds, counters) {
 	// 	lastSpeeds.shift();
 	// }
 	console.log('~~~~~~~~~~~');
-	console.log('Trimmed Buffer %:', usableBufferPercentage * 100);
-	console.log('Trimmed Seconds:', usableTotalSeconds);
-	console.log('Magnet Count:', magnetCounter);
-	console.log('RPM:', rotationsPerMinute);
+	// console.log('Trimmed Buffer %:', usableBufferPercentage * 100);
+	// console.log('Trimmed Seconds:', usableTotalSeconds);
+	// console.log('Magnet Count:', magnetCounter);
+	console.log('Magnets per Second:', magnetCounter / usableTotalSeconds);
+	// console.log('RPM:', rotationsPerMinute);
 	console.log('Wheel:', wheelMilesPerHour + ' MPH');
 	console.log('Belt:', beltMilesPerHour + ' MPH');
 	// console.log('Avg Belt:', statistics.average(lastSpeeds) + ' MPH');
 	console.log('Cadence:', cadence);
-	console.log('Avg Cadence:', statistics.average(lastCadences));
+	// console.log('Avg Cadence:', statistics.average(lastCadences));
 
 	// if (--waitFor <= 0 && --measureFor >= 0) {
 	// 	fs.writeFileSync('./data/' + measurePrefix + '-' + (measureCounter++) + '.json', JSON.stringify(counters), 'UTF-8');
@@ -140,7 +141,7 @@ function calculateAndWriteResults(totalNanoseconds, counters) {
 	// fs.writeFileSync('./currentSpeed.txt', avg(lastSpeeds), 'UTF-8');
 	// fs.writeFileSync('./currentCadence.txt', avg(lastCadences), 'UTF-8');
 	fs.writeFileSync('./currentSpeed.txt', beltMilesPerHour, 'UTF-8');
-	fs.writeFileSync('./currentCadence.txt', cadence, 'UTF-8');
+	// fs.writeFileSync('./currentCadence.txt', cadence, 'UTF-8');
 }
 
 function cleanCadence(val) {
