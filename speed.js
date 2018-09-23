@@ -24,14 +24,16 @@ const UPDATE_EVERY_MILLISECONDS = 1000;
 const SPEED_SAMPLE_PERIOD = 5 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const CADENCE_SAMPLE_PERIOD = 12 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const WHEEL_DIAMETER_IN_INCHES = 4.5;
-const WHEEL_RATIO = 18.139186148152856 / 4.0;
+const WHEEL_RATIO = 4.3158646137608905;
 const MAGNETS_ON_THE_WHEEL = 2;
-const HIGHS_TOLERANCE_PERCENT = 0.05;
+const HIGHS_TOLERANCE_MIN_PERCENT = 0.05;
+const HIGHS_TOLERANCE_MAX_PERCENT = 0.08;
+const SIGNIFICANT_SPEED_SHIFT_THRESHOLD = 0.2;
 
 /*
  Debugging.
  */
-let writeDebugLines = true;
+let writeDebugLines = false;
 let waitFor = 10;
 let measureFor = 0;
 let measureCounter = 0;
@@ -43,6 +45,8 @@ let magnet = new GPIO(INPUT_PIN, 'in', 'falling');
 let lastPassedAt = USE_HR_TIME
 	? process.hrtime()
 	: Date.now();
+let lastSpeed = 0;
+let significantSpeedShiftDetected = false;
 let passes = [];
 let maxSampleTime = Math.max(SPEED_SAMPLE_PERIOD, CADENCE_SAMPLE_PERIOD);
 let wheelCircumferenceInMiles = Math.PI * WHEEL_DIAMETER_IN_INCHES / INCHES_IN_A_MILE;
@@ -84,9 +88,15 @@ function updateCalculations() {
 		speedCalculated = false,
 		cadenceCalculated = false;
 
+	if (timeSinceLastPass > SPEED_SAMPLE_PERIOD) {
+		calculateAndWriteSpeed(0, 0);
+		speedCalculated = true;
+	}
+	if (timeSinceLastPass > CADENCE_SAMPLE_PERIOD) {
+		calculateAndWriteCadence(0, []);
+		cadenceCalculated = true;
+	}
 	if (passes.length === 0 || timeSinceLastPass > maxSampleTime) {
-		calculateAndWriteSpeed(sampledTime, 0);
-		calculateAndWriteCadence(sampledTime, []);
 		return;
 	}
 	for (let i = 0; i < passes.length; i++) {
@@ -122,18 +132,20 @@ function convertElapsedToNanoseconds(elapsed) {
 }
 
 function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
-	let fullRotations = magnetCounter / MAGNETS_ON_THE_WHEEL,
-		totalSeconds = elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
-		rotationsPerSecond = fullRotations / totalSeconds,
+	let fullRotations = magnetCounter < 1 ? 0 : magnetCounter / MAGNETS_ON_THE_WHEEL,
+		totalSeconds = elapsedTime === 0 ? 0 : elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
+		rotationsPerSecond = fullRotations < 1 ? 0 : fullRotations / totalSeconds,
 		rotationsPerMinute = rotationsPerSecond * 60,
 		rotationsPerHour = rotationsPerMinute * 60,
 		wheelMilesPerHour = rotationsPerHour * wheelCircumferenceInMiles,
-		beltMilesPerHour = wheelMilesPerHour / WHEEL_RATIO
+		beltMilesPerHour = wheelMilesPerHour < 0.1 ? 0 : wheelMilesPerHour / WHEEL_RATIO
 	;
 
 	if (beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED) {
 		beltMilesPerHour = 0;
 	}
+	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
+	lastSpeed = beltMilesPerHour;
 	fs.writeFileSync('./currentSpeed.txt', beltMilesPerHour, 'UTF-8');
 
 	if (writeDebugLines) {
@@ -146,13 +158,26 @@ function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
 }
 
 function calculateAndWriteCadence(elapsedTime, passes) {
-	let highs = passes.length && findHighs(passes, HIGHS_TOLERANCE_PERCENT),
-		rawCadence = highs
-			? highs / (elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND)) * 60
+	if (significantSpeedShiftDetected) {
+		if (writeDebugLines) {
+			console.log('Speed shift detected -- temporarily disabling cadence calculations.');
+		}
+		return;
+	}
+	let slowMagnetPasses = passes.length && findHighs(passes, HIGHS_TOLERANCE_MIN_PERCENT, HIGHS_TOLERANCE_MAX_PERCENT),
+		slowWheelPasses = slowMagnetPasses ? slowMagnetPasses / MAGNETS_ON_THE_WHEEL : 0,
+		elapsedSeconds = elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
+		rawCadence = slowWheelPasses
+			? slowWheelPasses / elapsedSeconds * 60
 			: 0,
-		cadence = rawCadence < MIN_CADENCE || rawCadence > MAX_CADENCE
+		cadence = (rawCadence < MIN_CADENCE || rawCadence > MAX_CADENCE)
 			? 0
 			: Math.round(rawCadence);
+
+	if (lastSpeed < MIN_SPEED) {
+		cadence = 0;
+	}
+
 	fs.writeFileSync('./currentCadence.txt', cadence, 'UTF-8');
 
 	if (writeDebugLines) {
