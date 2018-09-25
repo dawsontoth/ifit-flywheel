@@ -2,6 +2,7 @@ const
 	fs = require('fs'),
 	findHighs = require('./lib/findHighs'),
 	outliers = require('./lib/outliers'),
+	utils = require('./lib/utils'),
 	GPIO = require('onoff').Gpio;
 
 /*
@@ -24,7 +25,7 @@ const UPDATE_EVERY_MILLISECONDS = 1000;
 const SPEED_SAMPLE_PERIOD = 5 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const CADENCE_SAMPLE_PERIOD = 12 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const WHEEL_DIAMETER_IN_INCHES = 4.5;
-const WHEEL_RATIO = 4.3158646137608905;
+const WHEEL_RATIO = 13.155755104410094 / 3;
 const MAGNETS_ON_THE_WHEEL = 2;
 const HIGHS_TOLERANCE_MIN_PERCENT = 0.05;
 const HIGHS_TOLERANCE_MAX_PERCENT = 0.08;
@@ -33,7 +34,7 @@ const SIGNIFICANT_SPEED_SHIFT_THRESHOLD = 0.2;
 /*
  Debugging.
  */
-let writeDebugLines = false;
+let writeDebugLines = true;
 let waitFor = 10;
 let measureFor = 0;
 let measureCounter = 0;
@@ -41,7 +42,7 @@ let measureCounter = 0;
 /*
  State.
  */
-let magnet = new GPIO(INPUT_PIN, 'in', 'falling');
+let magnet = new GPIO(INPUT_PIN, 'in', 'rising');
 let lastPassedAt = USE_HR_TIME
 	? process.hrtime()
 	: Date.now();
@@ -50,6 +51,9 @@ let significantSpeedShiftDetected = false;
 let passes = [];
 let maxSampleTime = Math.max(SPEED_SAMPLE_PERIOD, CADENCE_SAMPLE_PERIOD);
 let wheelCircumferenceInMiles = Math.PI * WHEEL_DIAMETER_IN_INCHES / INCHES_IN_A_MILE;
+let smoothFor = 3;
+let smoothStore = {};
+let lastValue = -1;
 
 /*
  Initialization.
@@ -63,24 +67,34 @@ require('death')(cleanUp);
  Implementation.
  */
 
-function magnetPassed(err) {
+function magnetPassed(err, value) {
 	if (err) {
 		console.error(err);
 		// TODO: Do something with the error.
+		return;
+	}
+	if (value !== lastValue) {
+		// All good!
+		lastValue = value;
+		// Only fire on the falling edge.
+		if (value) {
+			return;
+		}
 	}
 	else {
-		passes.unshift(USE_HR_TIME
-			? convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
-			: Date.now() - lastPassedAt);
-		lastPassedAt = USE_HR_TIME
-			? process.hrtime()
-			: Date.now();
+		// console.log('Double value detected... probable miss.', value, lastValue);
 	}
+	passes.unshift(USE_HR_TIME
+		? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
+		: Date.now() - lastPassedAt);
+	lastPassedAt = USE_HR_TIME
+		? process.hrtime()
+		: Date.now();
 }
 
 function updateCalculations() {
 	let timeSinceLastPass = USE_HR_TIME
-		? convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
+		? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
 		: (Date.now() - lastPassedAt),
 		sampledTime = 0,
 		trimTo = -1,
@@ -127,10 +141,6 @@ function updateCalculations() {
 	}
 }
 
-function convertElapsedToNanoseconds(elapsed) {
-	return elapsed[0] * NANOSECONDS_IN_A_SECOND + elapsed[1];
-}
-
 function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
 	let fullRotations = magnetCounter < 1 ? 0 : magnetCounter / MAGNETS_ON_THE_WHEEL,
 		totalSeconds = elapsedTime === 0 ? 0 : elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
@@ -141,19 +151,24 @@ function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
 		beltMilesPerHour = wheelMilesPerHour < 0.1 ? 0 : wheelMilesPerHour / WHEEL_RATIO
 	;
 
+	let beltWithoutSmooth = beltMilesPerHour;
 	if (beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED) {
 		beltMilesPerHour = 0;
 	}
+	else {
+		beltMilesPerHour = smooth('speed', beltMilesPerHour);
+	}
 	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
 	lastSpeed = beltMilesPerHour;
-	fs.writeFileSync('./currentSpeed.txt', beltMilesPerHour, 'UTF-8');
+	fs.writeFile('./currentSpeed.txt', beltMilesPerHour, 'UTF-8', noop);
 
 	if (writeDebugLines) {
-		console.log('~~~~~~~~~~~');
-		console.log('Magnet Count:', magnetCounter);
-		console.log('RPM:', rotationsPerMinute);
-		console.log('Wheel:', wheelMilesPerHour + ' MPH');
-		console.log('Belt:', beltMilesPerHour + ' MPH');
+		// console.log('~~~~~~~~~~~');
+		// console.log('Magnet Count:', magnetCounter);
+		// console.log('RPM:', rotationsPerMinute);
+		// console.log('Wheel:', wheelMilesPerHour + ' MPH');
+		// console.log('Belt Raw:', beltWithoutSmooth + ' MPH');
+		console.log('Belt Smoothed:', beltMilesPerHour + ' MPH');
 	}
 }
 
@@ -177,17 +192,37 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 	if (lastSpeed < MIN_SPEED) {
 		cadence = 0;
 	}
-
-	fs.writeFileSync('./currentCadence.txt', cadence, 'UTF-8');
-
-	if (writeDebugLines) {
-		console.log('~~~~~~~~~~~');
-		console.log('Raw Cadence:', rawCadence);
-		console.log('Cadence:', cadence);
+	else {
+		cadence = smooth('cadence', cadence);
 	}
+
+	fs.writeFile('./currentCadence.txt', cadence, 'UTF-8', noop);
+
+	// if (writeDebugLines) {
+	// 	console.log('~~~~~~~~~~~');
+	// 	console.log('Raw Cadence:', rawCadence);
+	// 	console.log('Cadence:', cadence);
+	// }
 	if (measureFor >= 0 && --waitFor <= 0 && --measureFor >= 0) {
-		fs.writeFileSync('./data/cadence-passes-' + (measureCounter++) + '.json', JSON.stringify(outliers.filter(passes)), 'UTF-8');
+		fs.writeFile('./data/cadence-passes-' + (measureCounter++) + '.json', JSON.stringify(outliers.filter(passes)), 'UTF-8', noop);
 		console.log('measuring ' + measureCounter);
+	}
+}
+
+function smooth(key, val) {
+	if (!smoothStore[key]) {
+		smoothStore[key] = [];
+	}
+	smoothStore[key].push(val);
+	if (smoothStore[key].length > smoothFor) {
+		smoothStore[key].shift();
+	}
+	return smoothStore[key].reduce((a, b) => a + b, 0) / smoothStore[key].length;
+}
+
+function noop(err) {
+	if (err) {
+		console.error(err);
 	}
 }
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-process.env['BLENO_DEVICE_NAME'] = 'Dawson Treadmill';
+process.env['BLENO_DEVICE_NAME'] = 'Treadmill';
 
 let bleno = require('bleno'),
+	utils = require('./lib/utils'),
 	fs = require('fs');
 
 let rscService = new (require('./lib/rscService'))(),
@@ -16,7 +17,7 @@ bleno.on('stateChange', function(state) {
 	console.log('on -> stateChange: ' + state);
 
 	if (state === 'poweredOn') {
-		bleno.startAdvertising('Treadmill', [
+		bleno.startAdvertising('Truthmill', [
 			environmentalSensingService.uuid,
 			rscService.uuid,
 			treadmillService.uuid
@@ -44,29 +45,46 @@ let secondsPerHour = 3600;
 
 // These are in meters, by the way.
 let baseElevation = 100,
+	lastTrackedAt = process.hrtime(),
 	elevationGain = 0,
 	elevationLoss = 0;
 
-setInterval(() => {
-	let mph = parseFloat(fs.readFileSync('./currentSpeed.txt', 'UTF-8')),
-		incline = parseFloat(fs.readFileSync('./currentIncline.txt', 'UTF-8'));
-	if (mph >= 0.1 && Math.abs(incline) >= 0.1) {
-		// TODO: Measure the precise amount of time passed. It's _about_ 1 second, but not exact.
-		let metersPerSecond = mph / secondsPerHour * metersPerMile;
-		let elevationDelta = metersPerSecond * incline / 100;
+async function readFile(url) {
+	return new Promise((resolve, reject) => {
+		fs.readFile(url, 'UTF-8', (err, contents) => {
+			if (err) {
+				reject(err);
+			}
+			else {
+				resolve(contents);
+			}
+		});
+	});
+}
+
+setInterval(async () => {
+	let mph = parseFloat(await readFile('./currentSpeed.txt')),
+		incline = parseFloat(await readFile('./currentIncline.txt')),
+		cadence = parseInt(await readFile('./currentCadence.txt'), 10);
+	if (mph > 0 && Math.abs(incline) > 0) {
+		let metersTraveled = mph
+			/ secondsPerHour
+			* metersPerMile
+			* utils.convertElapsedToSeconds(process.hrtime(lastTrackedAt));
+		lastTrackedAt = process.hrtime();
+		let elevationDelta = metersTraveled * incline / 100;
 		if (elevationDelta > 0) {
 			elevationGain += elevationDelta;
 		}
 		else if (elevationDelta < 0) {
 			elevationLoss -= elevationDelta;
 		}
-		// mph * incline = elevation gain or loss?
 	}
 	if (rscService.measurement.updateValueCallback) {
 		rscService.measurement.updateValueCallback(Buffer.from(rscCalculator.calculateHex({
 			mph: mph,
 			// miles: 3.1,
-			cadence: parseInt(fs.readFileSync('./currentCadence.txt', 'UTF-8'), 10)
+			cadence: cadence
 		}), 'hex'));
 	}
 	if (treadmillService.measurement.updateValueCallback) {
