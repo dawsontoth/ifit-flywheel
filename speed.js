@@ -15,7 +15,8 @@ const INCHES_IN_A_MILE = 63360;
 /*
  Configuration.
  */
-const INPUT_PIN = 4;
+const INPUT_PIN = 17; // 4 = physical pin 7, 17 is 2 below it, at physical pin 11
+// https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/#prettyPhoto/0/
 const MIN_SPEED = 0.8;
 const MAX_SPEED = 16;
 const MIN_CADENCE = 90;
