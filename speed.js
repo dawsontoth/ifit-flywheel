@@ -15,7 +15,7 @@ const INCHES_IN_A_MILE = 63360;
 /*
  Configuration.
  */
-const INPUT_PIN = 17; // 4 = physical pin 7, 17 is 2 below it, at physical pin 11
+const INPUT_PIN = 27; // 4 = physical pin 7, 17 is 2 below it, at physical pin 11
 // https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/#prettyPhoto/0/
 const MIN_SPEED = 0.8;
 const MAX_SPEED = 16;
@@ -26,10 +26,10 @@ const UPDATE_EVERY_MILLISECONDS = 1000;
 const SPEED_SAMPLE_PERIOD = 5 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const CADENCE_SAMPLE_PERIOD = 12 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const WHEEL_DIAMETER_IN_INCHES = 4.5;
-const WHEEL_RATIO = 13.155755104410094 / 3;
-const MAGNETS_ON_THE_WHEEL = 2;
-const HIGHS_TOLERANCE_MIN_PERCENT = 0.05;
-const HIGHS_TOLERANCE_MAX_PERCENT = 0.08;
+const WHEEL_RATIO = 26.022630199883615 / 6;
+const OCCURRENCES_ON_THE_WHEEL = 1;
+const HIGHS_TOLERANCE_MIN_PERCENT = 0.02;
+const HIGHS_TOLERANCE_MAX_PERCENT = 0.09;
 const SIGNIFICANT_SPEED_SHIFT_THRESHOLD = 0.2;
 
 /*
@@ -39,6 +39,7 @@ let writeDebugLines = true;
 let waitFor = 10;
 let measureFor = 0;
 let measureCounter = 0;
+let computeAverage = [];
 
 /*
  State.
@@ -143,7 +144,7 @@ function updateCalculations() {
 }
 
 function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
-	let fullRotations = magnetCounter < 1 ? 0 : magnetCounter / MAGNETS_ON_THE_WHEEL,
+	let fullRotations = magnetCounter < 1 ? 0 : magnetCounter / OCCURRENCES_ON_THE_WHEEL,
 		totalSeconds = elapsedTime === 0 ? 0 : elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
 		rotationsPerSecond = fullRotations < 1 ? 0 : fullRotations / totalSeconds,
 		rotationsPerMinute = rotationsPerSecond * 60,
@@ -153,12 +154,7 @@ function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
 	;
 
 	let beltWithoutSmooth = beltMilesPerHour;
-	if (beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED) {
-		beltMilesPerHour = 0;
-	}
-	else {
-		beltMilesPerHour = smooth('speed', beltMilesPerHour);
-	}
+	beltMilesPerHour = smooth('speed', beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED ? 0 : beltMilesPerHour);
 	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
 	lastSpeed = beltMilesPerHour;
 	fs.writeFile('./currentSpeed.txt', beltMilesPerHour, 'UTF-8', noop);
@@ -168,6 +164,17 @@ function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
 		// console.log('Magnet Count:', magnetCounter);
 		// console.log('RPM:', rotationsPerMinute);
 		// console.log('Wheel:', wheelMilesPerHour + ' MPH');
+		if (computeAverage) {
+			computeAverage.push(wheelMilesPerHour);
+			if (computeAverage.length % 60 === 0) {
+				let filtered = outliers.filter(computeAverage);
+				console.log(
+					'60 Second Filtered Average Wheel Speed:',
+					filtered.reduce((a, b) => a + b, 0) / filtered.length
+				);
+				computeAverage = [];
+			}
+		}
 		// console.log('Belt Raw:', beltWithoutSmooth + ' MPH');
 		console.log('Belt Smoothed:', beltMilesPerHour + ' MPH');
 	}
@@ -181,7 +188,7 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 		return;
 	}
 	let slowMagnetPasses = passes.length && findHighs(passes, HIGHS_TOLERANCE_MIN_PERCENT, HIGHS_TOLERANCE_MAX_PERCENT),
-		slowWheelPasses = slowMagnetPasses ? slowMagnetPasses / MAGNETS_ON_THE_WHEEL : 0,
+		slowWheelPasses = slowMagnetPasses ? slowMagnetPasses / OCCURRENCES_ON_THE_WHEEL : 0,
 		elapsedSeconds = elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
 		rawCadence = slowWheelPasses
 			? slowWheelPasses / elapsedSeconds * 60
@@ -190,12 +197,7 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 			? 0
 			: Math.round(rawCadence);
 
-	if (lastSpeed < MIN_SPEED) {
-		cadence = 0;
-	}
-	else {
-		cadence = smooth('cadence', cadence);
-	}
+	cadence = smooth('cadence', lastSpeed < MIN_SPEED ? 0 : cadence);
 
 	fs.writeFile('./currentCadence.txt', cadence, 'UTF-8', noop);
 
