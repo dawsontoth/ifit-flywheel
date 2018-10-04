@@ -8,13 +8,14 @@ let fs = require('fs'),
  Configuration.
  */
 
-let INPUT_PIN = 7;
+const INPUT_PIN = 11; // 4 = physical pin 7, 17 is 2 below it, at physical pin 11
+// https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/#prettyPhoto/0/
 // TODO: Play with buffer length for cadence accuracy vs speed timeliness.
 let BUFFER_LENGTH = 2e7;
 let MEASUREMENT_INTERVAL = 4000;
 
 let WHEEL_DIAMETER_IN_INCHES = 4.5;
-let WHEEL_RATIO = 29.934003231159682 / 6.0;
+let WHEEL_RATIO = 30.214295278723423 / 6.0;
 let AVERAGE_SIZE = 3;
 let MINIMUM_SPEED = 0.8;
 
