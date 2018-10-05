@@ -3,6 +3,7 @@ const
 	findHighs = require('./lib/findHighs'),
 	outliers = require('./lib/outliers'),
 	utils = require('./lib/utils'),
+	ipc = require('./lib/ipc'),
 	GPIO = require('onoff').Gpio;
 
 /*
@@ -26,7 +27,7 @@ const UPDATE_EVERY_MILLISECONDS = 1000;
 const SPEED_SAMPLE_PERIOD = 5 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const CADENCE_SAMPLE_PERIOD = 12 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const WHEEL_DIAMETER_IN_INCHES = 4.5;
-const WHEEL_RATIO = 26.022630199883615 / 6;
+const WHEEL_RATIO = 25.42709471760993 / 5.8;
 const OCCURRENCES_ON_THE_WHEEL = 1;
 const HIGHS_TOLERANCE_MIN_PERCENT = 0.02;
 const HIGHS_TOLERANCE_MAX_PERCENT = 0.09;
@@ -44,7 +45,7 @@ let computeAverage = [];
 /*
  State.
  */
-let magnet = new GPIO(INPUT_PIN, 'in', 'rising');
+let trigger = new GPIO(INPUT_PIN, 'in', 'rising');
 let lastPassedAt = USE_HR_TIME
 	? process.hrtime()
 	: Date.now();
@@ -53,23 +54,25 @@ let significantSpeedShiftDetected = false;
 let passes = [];
 let maxSampleTime = Math.max(SPEED_SAMPLE_PERIOD, CADENCE_SAMPLE_PERIOD);
 let wheelCircumferenceInMiles = Math.PI * WHEEL_DIAMETER_IN_INCHES / INCHES_IN_A_MILE;
-let smoothFor = 3;
+let smoothFor = 0;
 let smoothStore = {};
 let lastValue = -1;
+ipc.boot(ipc.keys.speed);
+
 
 /*
  Initialization.
  */
 updateCalculations();
 setInterval(updateCalculations, UPDATE_EVERY_MILLISECONDS);
-magnet.watch(magnetPassed);
+trigger.watch(triggerPassed);
 require('death')(cleanUp);
 
 /*
  Implementation.
  */
 
-function magnetPassed(err, value) {
+function triggerPassed(err, value) {
 	if (err) {
 		console.error(err);
 		// TODO: Do something with the error.
@@ -100,7 +103,7 @@ function updateCalculations() {
 		: (Date.now() - lastPassedAt),
 		sampledTime = 0,
 		trimTo = -1,
-		magnetPassesForSpeed = 0,
+		triggerPassesForSpeed = 0,
 		speedCalculated = false,
 		cadenceCalculated = false;
 
@@ -120,10 +123,10 @@ function updateCalculations() {
 		if (!speedCalculated) {
 			if (sampledTime > SPEED_SAMPLE_PERIOD) {
 				speedCalculated = true;
-				calculateAndWriteSpeed(sampledTime, magnetPassesForSpeed);
+				calculateAndWriteSpeed(sampledTime, triggerPassesForSpeed);
 			}
 			else {
-				magnetPassesForSpeed += 1;
+				triggerPassesForSpeed += 1;
 			}
 		}
 		if (!cadenceCalculated) {
@@ -143,8 +146,8 @@ function updateCalculations() {
 	}
 }
 
-function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
-	let fullRotations = magnetCounter < 1 ? 0 : magnetCounter / OCCURRENCES_ON_THE_WHEEL,
+function calculateAndWriteSpeed(elapsedTime, triggerCounter) {
+	let fullRotations = triggerCounter < 1 ? 0 : triggerCounter / OCCURRENCES_ON_THE_WHEEL,
 		totalSeconds = elapsedTime === 0 ? 0 : elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
 		rotationsPerSecond = fullRotations < 1 ? 0 : fullRotations / totalSeconds,
 		rotationsPerMinute = rotationsPerSecond * 60,
@@ -153,15 +156,18 @@ function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
 		beltMilesPerHour = wheelMilesPerHour < 0.1 ? 0 : wheelMilesPerHour / WHEEL_RATIO
 	;
 
-	let beltWithoutSmooth = beltMilesPerHour;
-	beltMilesPerHour = smooth('speed', beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED ? 0 : beltMilesPerHour);
+	// let beltWithoutSmooth = beltMilesPerHour;
+	beltMilesPerHour = beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED ? 0 : beltMilesPerHour;
+	if (smoothFor > 0) {
+		beltMilesPerHour = smooth('speed', beltMilesPerHour);
+	}
 	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
 	lastSpeed = beltMilesPerHour;
-	fs.writeFile('./currentSpeed.txt', beltMilesPerHour, 'UTF-8', noop);
+	ipc.send(ipc.keys.bluetooth, { speed: beltMilesPerHour });
 
 	if (writeDebugLines) {
 		// console.log('~~~~~~~~~~~');
-		// console.log('Magnet Count:', magnetCounter);
+		// console.log('Trigger Count:', triggerCounter);
 		// console.log('RPM:', rotationsPerMinute);
 		// console.log('Wheel:', wheelMilesPerHour + ' MPH');
 		if (computeAverage) {
@@ -176,19 +182,19 @@ function calculateAndWriteSpeed(elapsedTime, magnetCounter) {
 			}
 		}
 		// console.log('Belt Raw:', beltWithoutSmooth + ' MPH');
-		console.log('Belt Smoothed:', beltMilesPerHour + ' MPH');
+		// console.log('Belt Smoothed:', beltMilesPerHour + ' MPH');
 	}
 }
 
 function calculateAndWriteCadence(elapsedTime, passes) {
 	if (significantSpeedShiftDetected) {
 		if (writeDebugLines) {
-			console.log('Speed shift detected -- temporarily disabling cadence calculations.');
+			// console.log('Speed shift detected -- temporarily disabling cadence calculations.');
 		}
 		return;
 	}
-	let slowMagnetPasses = passes.length && findHighs(passes, HIGHS_TOLERANCE_MIN_PERCENT, HIGHS_TOLERANCE_MAX_PERCENT),
-		slowWheelPasses = slowMagnetPasses ? slowMagnetPasses / OCCURRENCES_ON_THE_WHEEL : 0,
+	let slowTriggerPasses = passes.length && findHighs(passes, HIGHS_TOLERANCE_MIN_PERCENT, HIGHS_TOLERANCE_MAX_PERCENT),
+		slowWheelPasses = slowTriggerPasses ? slowTriggerPasses / OCCURRENCES_ON_THE_WHEEL : 0,
 		elapsedSeconds = elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
 		rawCadence = slowWheelPasses
 			? slowWheelPasses / elapsedSeconds * 60
@@ -197,9 +203,12 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 			? 0
 			: Math.round(rawCadence);
 
-	cadence = smooth('cadence', lastSpeed < MIN_SPEED ? 0 : cadence);
+	cadence = lastSpeed < MIN_SPEED ? 0 : cadence;
+	if (smoothFor > 0) {
+		cadence = smooth('cadence', cadence);
+	}
 
-	fs.writeFile('./currentCadence.txt', cadence, 'UTF-8', noop);
+	ipc.send(ipc.keys.bluetooth, { cadence: cadence });
 
 	// if (writeDebugLines) {
 	// 	console.log('~~~~~~~~~~~');
@@ -231,10 +240,11 @@ function noop(err) {
 
 function cleanUp() {
 	try {
-		magnet.unexport();
+		ipc.stop();
+		trigger.unexport();
 	}
 	catch (err) {
-		// Oh well!
+		console.error(err);
 	}
 	process.exit(0);
 }

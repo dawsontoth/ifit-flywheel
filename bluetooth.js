@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-process.env['BLENO_DEVICE_NAME'] = 'Treadmill';
+process.env['BLENO_DEVICE_NAME'] = 'Truthmill';
 
 let bleno = require('bleno'),
+	_ = require('lodash'),
 	utils = require('./lib/utils'),
-	fs = require('fs');
+	ipc = require('./lib/ipc');
 
 let rscService = new (require('./lib/rscService'))(),
 	treadmillService = new (require('./lib/treadmillService'))(),
@@ -13,7 +14,34 @@ let rscService = new (require('./lib/rscService'))(),
 	treadmillCalculator = require('./lib/treadmillCalculator'),
 	environmentalSensingCalculator = require('./lib/environmentalSensingCalculator');
 
-bleno.on('stateChange', function(state) {
+let metersPerMile = 1609.344,
+	secondsPerHour = 3600;
+
+// These are in meters, by the way.
+let baseElevation = 100,
+	updateFPS = 30,
+	lastTrackedAt = process.hrtime(),
+	elevationGain = 0,
+	elevationLoss = 0,
+	current = {
+		mph: 0,
+		incline: 0,
+		cadence: 0
+	},
+	ramps = {
+		mph: 0,
+		incline: 0,
+		cadence: 0
+	};
+
+setInterval(calculateGainAndLoss, 1000);
+setInterval(emitUpdates, 1000 / updateFPS);
+bleno.on('stateChange', stateChanged);
+bleno.on('advertisingStart', advertisingStarted);
+ipc.received = receivedData;
+ipc.boot(ipc.keys.bluetooth);
+
+function stateChanged(state) {
 	console.log('on -> stateChange: ' + state);
 
 	if (state === 'poweredOn') {
@@ -26,9 +54,9 @@ bleno.on('stateChange', function(state) {
 	else {
 		bleno.stopAdvertising();
 	}
-});
+}
 
-bleno.on('advertisingStart', function(error) {
+function advertisingStarted(error) {
 	console.log('on -> advertisingStart: ' + (error ? 'error ' + error : 'success'));
 
 	if (!error) {
@@ -38,41 +66,25 @@ bleno.on('advertisingStart', function(error) {
 			treadmillService
 		]);
 	}
-});
-
-let metersPerMile = 1609.344;
-let secondsPerHour = 3600;
-
-// These are in meters, by the way.
-let baseElevation = 100,
-	lastTrackedAt = process.hrtime(),
-	elevationGain = 0,
-	elevationLoss = 0;
-
-async function readFile(url) {
-	return new Promise((resolve, reject) => {
-		fs.readFile(url, 'UTF-8', (err, contents) => {
-			if (err) {
-				reject(err);
-			}
-			else {
-				resolve(contents);
-			}
-		});
-	});
 }
 
-setInterval(async () => {
-	let mph = parseFloat(await readFile('./currentSpeed.txt')),
-		incline = parseFloat(await readFile('./currentIncline.txt')),
-		cadence = parseInt(await readFile('./currentCadence.txt'), 10);
-	if (mph > 0 && Math.abs(incline) > 0) {
-		let metersTraveled = mph
+function receivedData(data) {
+	if (data.speed !== undefined) {
+		current.mph = data.speed;
+	}
+	if (data.cadence !== undefined) {
+		current.cadence = data.cadence;
+	}
+}
+
+function calculateGainAndLoss() {
+	if (current.mph > 0 && Math.abs(current.incline) > 0) {
+		let metersTraveled = current.incline
 			/ secondsPerHour
 			* metersPerMile
 			* utils.convertElapsedToSeconds(process.hrtime(lastTrackedAt));
 		lastTrackedAt = process.hrtime();
-		let elevationDelta = metersTraveled * incline / 100;
+		let elevationDelta = metersTraveled * current.incline / 100;
 		if (elevationDelta > 0) {
 			elevationGain += elevationDelta;
 		}
@@ -80,17 +92,20 @@ setInterval(async () => {
 			elevationLoss -= elevationDelta;
 		}
 	}
+}
+
+function emitUpdates() {
 	if (rscService.measurement.updateValueCallback) {
 		rscService.measurement.updateValueCallback(Buffer.from(rscCalculator.calculateHex({
-			mph: mph,
+			mph: rampCurrentValue('mph'),
 			// miles: 3.1,
-			cadence: cadence
+			cadence: rampCurrentValue('cadence')
 		}), 'hex'));
 	}
 	if (treadmillService.measurement.updateValueCallback) {
 		treadmillService.measurement.updateValueCallback(Buffer.from(treadmillCalculator.calculateHex({
-			mph: mph,
-			incline: incline,
+			mph: rampCurrentValue('mph'),
+			incline: rampCurrentValue('incline'),
 			elevation: {
 				gain: elevationGain,
 				loss: elevationLoss
@@ -105,15 +120,33 @@ setInterval(async () => {
 		console.log('update value callback for environmental sensing!');
 		environmentalSensingService.measurement.updateValueCallback(elevationValue);
 	}
-}, 1000);
+}
 
+function rampCurrentValue(key) {
+	//                 6mph
+	let currentValue = current[key],
+		//            4mph
+		rampedValue = ramps[key],
+		//      +2mph
+		delta = currentValue - rampedValue,
+		step = 0.2 / updateFPS;
+	// Are we within one step of the new value?
+	if (Math.abs(delta) <= step) {
+		ramps[key] = current[key];
+	}
+	else {
+		ramps[key] += step * (delta > 0 ? 1 : -1);
+	}
+	return ramps[key];
+}
 
 require('death')(() => {
 	try {
+		ipc.stop();
 		bleno.disconnect();
 	}
 	catch (err) {
-		// Oh well!
+		console.error(err);
 	}
 	process.exit(0);
 });
