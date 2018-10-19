@@ -11,7 +11,6 @@ const
  */
 const NANOSECONDS_IN_A_SECOND = 1e9;
 const MILLISECONDS_IN_A_SECOND = 1e3;
-const INCHES_IN_A_MILE = 63360;
 
 /*
  Configuration.
@@ -23,15 +22,17 @@ const MAX_SPEED = 16;
 const MIN_CADENCE = 90;
 const MAX_CADENCE = 230;
 const USE_HR_TIME = true;
-const UPDATE_EVERY_MILLISECONDS = 1000;
+const UPDATE_EVERY_MILLISECONDS = 1e3;
 const SPEED_SAMPLE_PERIOD = 5 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
 const CADENCE_SAMPLE_PERIOD = 12 * (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND);
-const WHEEL_DIAMETER_IN_INCHES = 4.5;
-const WHEEL_RATIO = 25.42709471760993 / 5.8;
+const RPS_RATIO = 33.00991828685567 / 6;
 const OCCURRENCES_ON_THE_WHEEL = 1;
 const HIGHS_TOLERANCE_MIN_PERCENT = 0.02;
 const HIGHS_TOLERANCE_MAX_PERCENT = 0.09;
 const SIGNIFICANT_SPEED_SHIFT_THRESHOLD = 0.2;
+const PASS_AVERAGE_PERIOD = 6;
+const PASS_AVERAGE_MAX = 3;
+const PASS_AVERAGE_TOLERANCE = 0.15;
 
 /*
  Debugging.
@@ -40,25 +41,21 @@ let writeDebugLines = true;
 let waitFor = 10;
 let measureFor = 0;
 let measureCounter = 0;
-let computeAverage = [];
+let computeAverageForRatio = null; // Set to null to turn off, [] to turn on.
 
 /*
  State.
  */
 let trigger = new GPIO(INPUT_PIN, 'in', 'rising');
-let lastPassedAt = USE_HR_TIME
-	? process.hrtime()
-	: Date.now();
 let lastSpeed = 0;
 let significantSpeedShiftDetected = false;
 let passes = [];
 let maxSampleTime = Math.max(SPEED_SAMPLE_PERIOD, CADENCE_SAMPLE_PERIOD);
-let wheelCircumferenceInMiles = Math.PI * WHEEL_DIAMETER_IN_INCHES / INCHES_IN_A_MILE;
-let smoothFor = 0;
+let smoothFor = 3;
 let smoothStore = {};
-let lastValue = -1;
 ipc.boot(ipc.keys.speed);
-
+let lastPassedAt = 0;
+let passesAveraged = 0;
 
 /*
  Initialization.
@@ -66,44 +63,51 @@ ipc.boot(ipc.keys.speed);
 updateCalculations();
 setInterval(updateCalculations, UPDATE_EVERY_MILLISECONDS);
 trigger.watch(triggerPassed);
+// setTimeout(dumpPasses, 12e3);
 require('death')(cleanUp);
 
 /*
  Implementation.
  */
 
-function triggerPassed(err, value) {
+function triggerPassed(err) {
 	if (err) {
 		console.error(err);
 		// TODO: Do something with the error.
 		return;
 	}
-	if (value !== lastValue) {
-		// All good!
-		lastValue = value;
-		// Only fire on the falling edge.
-		if (value) {
-			return;
+	if (lastPassedAt) {
+		let elapsedTime = USE_HR_TIME
+			? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
+			: Date.now() - lastPassedAt;
+		if (passes.length > PASS_AVERAGE_PERIOD) {
+			let recentPassesAverage = passes.slice(0, PASS_AVERAGE_PERIOD).reduce((a, b) => a + b, 0) / PASS_AVERAGE_PERIOD,
+				deltaAverage = Math.abs(recentPassesAverage - elapsedTime),
+				percentDeviation = deltaAverage / recentPassesAverage;
+			if (percentDeviation > PASS_AVERAGE_TOLERANCE && passesAveraged < PASS_AVERAGE_MAX) {
+				// console.log('Deviant pass detected, smoothing:', elapsedTime, recentPassesAverage, percentDeviation);
+				elapsedTime = recentPassesAverage;
+				passesAveraged += 1;
+			}
+			else {
+				passesAveraged = Math.max(passesAveraged - 1, 0);
+			}
 		}
+		passes.unshift(elapsedTime);
 	}
-	else {
-		// console.log('Double value detected... probable miss.', value, lastValue);
-	}
-	passes.unshift(USE_HR_TIME
-		? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
-		: Date.now() - lastPassedAt);
 	lastPassedAt = USE_HR_TIME
 		? process.hrtime()
 		: Date.now();
 }
 
 function updateCalculations() {
-	let timeSinceLastPass = USE_HR_TIME
-		? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
-		: (Date.now() - lastPassedAt),
+	let timeSinceLastPass = lastPassedAt
+		? USE_HR_TIME
+			? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
+			: (Date.now() - lastPassedAt)
+		: Number.MAX_SAFE_INTEGER,
 		sampledTime = 0,
 		trimTo = -1,
-		triggerPassesForSpeed = 0,
 		speedCalculated = false,
 		cadenceCalculated = false;
 
@@ -123,11 +127,11 @@ function updateCalculations() {
 		if (!speedCalculated) {
 			if (sampledTime > SPEED_SAMPLE_PERIOD) {
 				speedCalculated = true;
-				calculateAndWriteSpeed(sampledTime, triggerPassesForSpeed);
+				calculateAndWriteSpeed(sampledTime, i + 1);
 			}
-			else {
-				triggerPassesForSpeed += 1;
-			}
+		}
+		if (sampledTime > maxSampleTime) {
+			trimTo = i;
 		}
 		if (!cadenceCalculated) {
 			if (sampledTime > CADENCE_SAMPLE_PERIOD) {
@@ -136,7 +140,6 @@ function updateCalculations() {
 			}
 		}
 		if (sampledTime > maxSampleTime) {
-			trimTo = i;
 			break;
 		}
 	}
@@ -146,21 +149,27 @@ function updateCalculations() {
 	}
 }
 
+function dumpPasses() {
+	let copyPasses = passes.slice();
+	fs.writeFile('./data/raw-passes-1.json', JSON.stringify(copyPasses), 'UTF-8', err => {
+		if (err) {
+			console.error(err);
+		}
+		else {
+			console.log('Passes written to ./data/raw-passes-1.json');
+		}
+	});
+}
+
 function calculateAndWriteSpeed(elapsedTime, triggerCounter) {
-	let fullRotations = triggerCounter < 1 ? 0 : triggerCounter / OCCURRENCES_ON_THE_WHEEL,
-		totalSeconds = elapsedTime === 0 ? 0 : elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND),
-		rotationsPerSecond = fullRotations < 1 ? 0 : fullRotations / totalSeconds,
-		rotationsPerMinute = rotationsPerSecond * 60,
-		rotationsPerHour = rotationsPerMinute * 60,
-		wheelMilesPerHour = rotationsPerHour * wheelCircumferenceInMiles,
-		beltMilesPerHour = wheelMilesPerHour < 0.1 ? 0 : wheelMilesPerHour / WHEEL_RATIO
+	let fullRotations = triggerCounter < 1 ? 0 : (triggerCounter / OCCURRENCES_ON_THE_WHEEL),
+		totalSeconds = elapsedTime === 0 ? 0 : (elapsedTime / (USE_HR_TIME ? NANOSECONDS_IN_A_SECOND : MILLISECONDS_IN_A_SECOND)),
+		rotationsPerSecond = fullRotations < 1 ? 0 : (fullRotations / totalSeconds),
+		beltMilesPerHour = fullRotations < 1 ? 0 : (rotationsPerSecond / RPS_RATIO)
 	;
 
 	// let beltWithoutSmooth = beltMilesPerHour;
-	beltMilesPerHour = beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED ? 0 : beltMilesPerHour;
-	if (smoothFor > 0) {
-		beltMilesPerHour = smooth('speed', beltMilesPerHour);
-	}
+	beltMilesPerHour = smooth('speed', beltMilesPerHour < MIN_SPEED || beltMilesPerHour > MAX_SPEED ? 0 : beltMilesPerHour);
 	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
 	lastSpeed = beltMilesPerHour;
 	ipc.send(ipc.keys.bluetooth, { speed: beltMilesPerHour });
@@ -168,17 +177,17 @@ function calculateAndWriteSpeed(elapsedTime, triggerCounter) {
 	if (writeDebugLines) {
 		// console.log('~~~~~~~~~~~');
 		// console.log('Trigger Count:', triggerCounter);
-		// console.log('RPM:', rotationsPerMinute);
-		// console.log('Wheel:', wheelMilesPerHour + ' MPH');
-		if (computeAverage) {
-			computeAverage.push(wheelMilesPerHour);
-			if (computeAverage.length % 60 === 0) {
-				let filtered = outliers.filter(computeAverage);
+		// console.log('RPS:', rotationsPerSecond);
+		if (computeAverageForRatio) {
+			if (rotationsPerSecond) {
+				computeAverageForRatio.push(rotationsPerSecond);
+			}
+			if (computeAverageForRatio.length && computeAverageForRatio.length % 30 === 0) {
 				console.log(
-					'60 Second Filtered Average Wheel Speed:',
-					filtered.reduce((a, b) => a + b, 0) / filtered.length
+					'30 Second Average for Ratio:',
+					computeAverageForRatio.reduce((a, b) => a + b, 0) / computeAverageForRatio.length
 				);
-				computeAverage = [];
+				computeAverageForRatio = [];
 			}
 		}
 		// console.log('Belt Raw:', beltWithoutSmooth + ' MPH');
@@ -203,10 +212,7 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 			? 0
 			: Math.round(rawCadence);
 
-	cadence = lastSpeed < MIN_SPEED ? 0 : cadence;
-	if (smoothFor > 0) {
-		cadence = smooth('cadence', cadence);
-	}
+	cadence = smooth('cadence', lastSpeed < MIN_SPEED ? 0 : cadence);
 
 	ipc.send(ipc.keys.bluetooth, { cadence: cadence });
 
@@ -222,6 +228,9 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 }
 
 function smooth(key, val) {
+	if (!smoothFor) {
+		return val;
+	}
 	if (!smoothStore[key]) {
 		smoothStore[key] = [];
 	}
