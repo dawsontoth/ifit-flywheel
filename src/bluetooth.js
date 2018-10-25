@@ -1,55 +1,57 @@
 #!/usr/bin/env node
+let constants = require('./constants');
 
-process.env['BLENO_DEVICE_NAME'] = 'Truthmill';
+process.env['BLENO_DEVICE_NAME'] = constants.NAME;
 
 let bleno = require('bleno'),
 	_ = require('lodash'),
 	utils = require('./lib/utils'),
-	ipc = require('./lib/ipc');
+	ipc = require('./lib/ipc'),
+	rscService = new (require('./bluetooth/rsc/service'))(),
+	rscCalculator = require('./bluetooth/rsc/calculator'),
+	treadmillService = new (require('./bluetooth/treadmill/treadmillService'))(),
+	treadmillCalculator = require('./bluetooth/treadmill/treadmillCalculator'),
+	environmentalSensingService = new (require('./bluetooth/environmental/service'))(),
+	environmentalSensingCalculator = require('./bluetooth/environmental/calculator');
 
-let rscService = new (require('./lib/rscService'))(),
-	treadmillService = new (require('./lib/treadmillService'))(),
-	environmentalSensingService = new (require('./lib/environmentalSensingService'))(),
-	rscCalculator = require('./lib/rscCalculator'),
-	treadmillCalculator = require('./lib/treadmillCalculator'),
-	environmentalSensingCalculator = require('./lib/environmentalSensingCalculator');
-
-let metersPerMile = 1609.344,
-	secondsPerHour = 3600;
-
-// These are in meters, by the way.
-let baseElevation = 100,
+/*
+ State.
+ */
+let baseElevationMeters = 100,
 	updateFPS = 30,
 	lastTrackedAt = process.hrtime(),
-	elevationGain = 0,
-	elevationLoss = 0,
+	elevationGainMeters = 0,
+	elevationLossMeters = 0,
 	current = {
 		mph: 0,
-		incline: 0,
+		incline: 5,
 		cadence: 0
 	},
 	ramps = {
 		mph: 0,
-		incline: 0,
+		incline: 5,
 		cadence: 0
-	};
+	},
+	services = [
+		// environmentalSensingService,
+		rscService,
+		treadmillService
+	],
+	serviceUUIDs = services.map(s => s.uuid);
 
-setInterval(calculateGainAndLoss, 1000);
-setInterval(emitUpdates, 1000 / updateFPS);
+/*
+ Initialization.
+ */
 bleno.on('stateChange', stateChanged);
 bleno.on('advertisingStart', advertisingStarted);
 ipc.received = receivedData;
 ipc.boot(ipc.keys.bluetooth);
+setInterval(calculateGainAndLoss, constants.UPDATE_EVERY_MILLISECONDS);
+setInterval(emitUpdates, constants.UPDATE_EVERY_MILLISECONDS / updateFPS);
 
 function stateChanged(state) {
-	console.log('on -> stateChange: ' + state);
-
 	if (state === 'poweredOn') {
-		bleno.startAdvertising('Truthmill', [
-			environmentalSensingService.uuid,
-			rscService.uuid,
-			treadmillService.uuid
-		]);
+		bleno.startAdvertising(constants.NAME, serviceUUIDs);
 	}
 	else {
 		bleno.stopAdvertising();
@@ -57,15 +59,11 @@ function stateChanged(state) {
 }
 
 function advertisingStarted(error) {
-	console.log('on -> advertisingStart: ' + (error ? 'error ' + error : 'success'));
-
-	if (!error) {
-		bleno.setServices([
-			environmentalSensingService,
-			rscService,
-			treadmillService
-		]);
+	if (error) {
+		console.error(error);
+		return;
 	}
+	bleno.setServices(services);
 }
 
 function receivedData(data) {
@@ -75,21 +73,24 @@ function receivedData(data) {
 	if (data.cadence !== undefined) {
 		current.cadence = data.cadence;
 	}
+	if (data.incline !== undefined) {
+		current.incline = data.incline;
+	}
 }
 
 function calculateGainAndLoss() {
 	if (current.mph > 0 && Math.abs(current.incline) > 0) {
 		let metersTraveled = current.incline
-			/ secondsPerHour
-			* metersPerMile
+			/ constants.SECONDS_PER_HOUR
+			* constants.METERS_PER_MILE
 			* utils.convertElapsedToSeconds(process.hrtime(lastTrackedAt));
 		lastTrackedAt = process.hrtime();
 		let elevationDelta = metersTraveled * current.incline / 100;
 		if (elevationDelta > 0) {
-			elevationGain += elevationDelta;
+			elevationGainMeters += elevationDelta;
 		}
 		else if (elevationDelta < 0) {
-			elevationLoss -= elevationDelta;
+			elevationLossMeters -= elevationDelta;
 		}
 	}
 }
@@ -107,17 +108,16 @@ function emitUpdates() {
 			mph: rampCurrentValue('mph'),
 			incline: rampCurrentValue('incline'),
 			elevation: {
-				gain: elevationGain,
-				loss: elevationLoss
+				gain: elevationGainMeters,
+				loss: elevationLossMeters
 			}
 		}), 'hex'));
 	}
 	let elevationValue = Buffer.from(environmentalSensingCalculator.calculateHex({
-		elevation: baseElevation + elevationGain + elevationLoss
+		elevation: baseElevationMeters + elevationGainMeters + elevationLossMeters
 	}), 'hex');
 	environmentalSensingService.measurement.value = elevationValue;
 	if (environmentalSensingService.measurement.updateValueCallback) {
-		console.log('update value callback for environmental sensing!');
 		environmentalSensingService.measurement.updateValueCallback(elevationValue);
 	}
 }

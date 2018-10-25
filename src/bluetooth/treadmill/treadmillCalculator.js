@@ -1,5 +1,5 @@
-let convertBase = require('./convertBase'),
-	utils = require('./utils');
+let convertBase = require('../../lib/convertBase'),
+	utils = require('../../lib/utils');
 
 let metersPerMile = 1609.344;
 let metersPerKilometer = 1000;

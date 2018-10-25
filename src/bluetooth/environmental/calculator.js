@@ -1,5 +1,5 @@
-let convertBase = require('./convertBase'),
-	utils = require('./utils');
+let convertBase = require('../../lib/convertBase'),
+	utils = require('../../lib/utils');
 
 exports.calculateHex = calculateHex;
 

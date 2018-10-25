@@ -4,18 +4,18 @@ let util = require('util'),
 // 16-bit feature flags
 let feature = Buffer.from('0000000000000000', 'binary');
 
-let RSCFeatureCharacteristic = function() {
+function RSCFeatureCharacteristic() {
 	RSCFeatureCharacteristic.super_.call(this, {
 		uuid: '2A54',
 		properties: ['read'],
 		value: feature,
 		descriptors: []
 	});
-};
+}
+
 util.inherits(RSCFeatureCharacteristic, bleno.Characteristic);
 
 RSCFeatureCharacteristic.prototype.onReadRequest = function(offset, callback) {
-	console.log('read feature characteristic');
 	let result = this.RESULT_SUCCESS,
 		data = feature;
 	if (offset > data.length) {

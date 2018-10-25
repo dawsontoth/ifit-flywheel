@@ -4,18 +4,18 @@ let util = require('util'),
 // 16-bit feature flags
 let feature = Buffer.from('0000000000000000', 'binary');
 
-let TreadmillFeatureCharacteristic = function() {
+function TreadmillFeatureCharacteristic() {
 	TreadmillFeatureCharacteristic.super_.call(this, {
 		uuid: '2ACC',
 		properties: ['read'],
 		value: feature,
 		descriptors: []
 	});
-};
+}
+
 util.inherits(TreadmillFeatureCharacteristic, bleno.Characteristic);
 
 TreadmillFeatureCharacteristic.prototype.onReadRequest = function(offset, callback) {
-	console.log('read treadmill feature characteristic');
 	let result = this.RESULT_SUCCESS,
 		data = feature;
 	if (offset > data.length) {

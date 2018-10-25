@@ -1,17 +1,16 @@
-let outliers = require('./outliers'),
-	statistics = require('./statistics');
+let outliers = require('./outliers');
 
 module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 	// console.time('filtering');
 	// on = outliers.filter(on);
 	// console.timeEnd('filtering');
 
-	let average = statistics.average(on),
-		maximum = Math.max(...on),
-		diff = maximum - average,
-		delta = diff / average,
+	let avg = average(on),
+		max = Math.max(...on),
+		diff = max - avg,
+		delta = diff / avg,
 		highsFound = 0,
-		foundSignificantChange = diff && average && (
+		foundSignificantChange = diff && avg && (
 			delta >= toleranceMin
 			&& delta <= toleranceMax
 		);
@@ -24,7 +23,7 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 			countToSwitch = 3;
 		on.forEach(value => {
 			if (isHigh) {
-				if (value <= average) {
+				if (value <= avg) {
 					lowCount += 1;
 				}
 				if (lowCount > countToSwitch) {
@@ -33,7 +32,7 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 				}
 			}
 			else {
-				if (value > average) {
+				if (value > avg) {
 					highCount += 1;
 				}
 				if (highCount > countToSwitch) {
@@ -46,3 +45,7 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 	}
 	return highsFound;
 };
+
+function average(list) {
+	return list.reduce((a, b) => a + b, 0) / list.length;
+}

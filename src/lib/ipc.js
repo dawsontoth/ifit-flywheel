@@ -1,13 +1,15 @@
 let ipc = require('node-ipc');
 
-exports.keys = {
-	speed: 'speed',
-	bluetooth: 'bluetooth'
+let ports = {
+	trigger: 8001,
+	calculate: 8002,
+	bluetooth: 8003
 };
 
-let ports = {
-	speed: 8001,
-	bluetooth: 8002
+exports.keys = {
+	trigger: 'trigger',
+	calculate: 'calculate',
+	bluetooth: 'bluetooth'
 };
 
 exports.received = function noop(data) {
@@ -27,8 +29,7 @@ exports.boot = function(key) {
 			ipc.server.on(
 				'message',
 				data => {
-					let message = JSON.parse(data.message);
-					exports.received(message);
+					exports.received(JSON.parse(data.message));
 				}
 			);
 		}

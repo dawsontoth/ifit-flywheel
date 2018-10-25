@@ -1,9 +1,16 @@
-const NANOSECONDS_IN_A_SECOND = 1e9;
+let constants = require('../constants');
 
+/*
+ Public API.
+ */
 exports.reverseBytes = reverseBytes;
 exports.enforceLength = enforceLength;
 exports.convertElapsedToNanoseconds = convertElapsedToNanoseconds;
 exports.convertElapsedToSeconds = convertElapsedToSeconds;
+
+/*
+ Implementation.
+ */
 
 function reverseBytes(hex) {
 	let parts = [];
@@ -15,7 +22,6 @@ function reverseBytes(hex) {
 
 function enforceLength(length, hex) {
 	hex = String(hex || '');
-	// Overflow.
 	if (hex.length > length) {
 		return hex.slice(-1 * length);
 	}
@@ -26,9 +32,9 @@ function enforceLength(length, hex) {
 }
 
 function convertElapsedToNanoseconds(elapsed) {
-	return elapsed[0] * NANOSECONDS_IN_A_SECOND + elapsed[1];
+	return elapsed[0] * constants.NANOSECONDS_IN_A_SECOND + elapsed[1];
 }
 
 function convertElapsedToSeconds(elapsed) {
-	return convertElapsedToNanoseconds(elapsed) / NANOSECONDS_IN_A_SECOND;
+	return convertElapsedToNanoseconds(elapsed) / constants.NANOSECONDS_IN_A_SECOND;
 }

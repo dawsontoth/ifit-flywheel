@@ -1,8 +1,8 @@
 let util = require('util'),
 	bleno = require('bleno');
 
-let EnvironmentalSensingService = function() {
-	this.measurement = new (require('./environmentalSensingElevationCharacteristic'))();
+function EnvironmentalSensingService() {
+	this.measurement = new (require('./elevationCharacteristic'))();
 
 	EnvironmentalSensingService.super_.call(this, {
 		name: 'EnvironmentalSensing',
@@ -11,7 +11,8 @@ let EnvironmentalSensingService = function() {
 			this.measurement
 		]
 	});
-};
+}
+
 util.inherits(EnvironmentalSensingService, bleno.PrimaryService);
 
 module.exports = EnvironmentalSensingService;

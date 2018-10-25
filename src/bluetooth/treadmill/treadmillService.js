@@ -1,18 +1,20 @@
 let util = require('util'),
-	bleno = require('bleno');
+	bleno = require('bleno'),
+	constants = require('../../constants');
 
-let TreadmillService = function() {
+function TreadmillService() {
 	this.measurement = new (require('./treadmillDataCharacteristic'))();
 
 	TreadmillService.super_.call(this, {
-		name: 'Truthmill',
+		name: constants.NAME,
 		uuid: '1826',
 		characteristics: [
 			this.measurement,
 			new (require('./treadmillFeatureCharacteristic'))()
 		]
 	});
-};
+}
+
 util.inherits(TreadmillService, bleno.PrimaryService);
 
 module.exports = TreadmillService;
