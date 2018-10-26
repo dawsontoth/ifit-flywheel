@@ -15,7 +15,7 @@ let trigger = new GPIO(constants.INPUT_PIN, 'in', 'rising'),
 /*
  Initialization.
  */
-ipc.boot(ipc.keys.calculate);
+ipc.boot(ipc.keys.trigger);
 trigger.watch(triggerPassed);
 require('death')(cleanUp);
 // setTimeout(dumpPasses, 12e3);
