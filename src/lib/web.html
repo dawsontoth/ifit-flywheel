@@ -1,0 +1,132 @@
+<html>
+<head>
+	<script type="text/javascript" src="//www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript">
+		google.charts.load('current', { 'packages': ['corechart', 'gauge'] });
+		google.charts.setOnLoadCallback(drawChart);
+
+		function drawChart() {
+			let passesElement = document.getElementById('passesChart'),
+				passesChart = new google.visualization.LineChart(passesElement),
+				passesOptions = {
+					title: 'Triggers',
+					curveType: 'function',
+					legend: { position: 'bottom' }
+				},
+				valuesElement = document.getElementById('valuesChart'),
+				valuesChart = new google.visualization.Gauge(valuesElement),
+				valuesOptions = {
+					min: 0, max: 200,
+					minorTicks: 10
+				};
+			updateChart();
+			setInterval(updateChart, 1000);
+
+			function updateChart() {
+				fetch('/payload.json')
+					.then(response => response.json())
+					.then(function(data) {
+						let passesTable = [
+							['Pass', 'Magnitude']
+						];
+						if (data.Passes && data.Passes.length) {
+							if (passesElement.classList.contains('faded')) {
+								passesElement.classList.remove('faded');
+							}
+							data.Passes
+								.reverse()
+								.forEach((elapsed, index) => {
+									passesTable.push([String(index), elapsed || 0]);
+								});
+							passesChart.draw(google.visualization.arrayToDataTable(passesTable), passesOptions);
+						}
+						else {
+							if (!passesElement.classList.contains('faded')) {
+								passesElement.classList.add('faded');
+							}
+						}
+						let valuesTable = [
+							['Label', 'Value']
+							// , ['Memory', 4]
+							// , ['CPU', 550]
+							// , ['Network', 68]
+						];
+						for (let dataKey in data) {
+							if (data.hasOwnProperty(dataKey) && dataKey !== 'Passes') {
+								valuesTable.push([dataKey.replace(/[a-z][A-Z]/g, match => match[0] + ' ' + match[1]), data[dataKey]]);
+							}
+						}
+						if (valuesTable.length > 1) {
+							if (valuesElement.classList.contains('faded')) {
+								valuesElement.classList.remove('faded');
+							}
+						}
+						else {
+							if (!valuesElement.classList.contains('faded')) {
+								valuesElement.classList.add('faded');
+							}
+						}
+						valuesChart.draw(google.visualization.arrayToDataTable(valuesTable), valuesOptions);
+					});
+			}
+
+		}
+	</script>
+	<style type="text/css">
+		html, body {
+			width: 100%;
+			height: 100%;
+			padding: 0;
+			margin: 0;
+			overflow: hidden;
+		}
+
+		#chartContainer {
+			display: flex;
+			flex-direction: row;
+			align-items: stretch;
+			justify-content: stretch;
+			width: 100%;
+			height: 100%;
+		}
+
+		#passesChart {
+			flex: 1;
+		}
+
+		#valuesChart {
+			background-color: #eee;
+			border-right: 1px solid #ccc;
+			flex: initial;
+			width: 100px;
+			padding: 10px;
+		}
+
+		.faded {
+			position: relative;
+		}
+
+		.faded:after {
+			position: absolute;
+			top: 10px;
+			right: 10px;
+			bottom: 10px;
+			left: 10px;
+			padding: 10px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 10em;
+			color: rgba(0, 0, 0, 0.1);
+			content: '?';
+			border: 1px dashed red;
+		}
+	</style>
+</head>
+<body>
+<div id="chartContainer">
+	<div id="valuesChart"></div>
+	<div id="passesChart"></div>
+</div>
+</body>
+</html>

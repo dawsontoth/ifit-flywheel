@@ -7,9 +7,9 @@ exports.OCCURRENCES_ON_THE_WHEEL = 1;
 exports.INPUT_PIN = 27; // 4 = physical pin 7, 17 is 2 below it, at physical pin 11
 // https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/#prettyPhoto/0/
 exports.USE_HR_TIME = true;
-exports.PASS_AVERAGE_PERIOD = 6;
-exports.PASS_AVERAGE_MAX = 3;
-exports.PASS_AVERAGE_TOLERANCE = 0.15;
+exports.PASS_AVERAGE_PERIOD = 10;
+exports.PASS_AVERAGE_MAX = 10;
+exports.PASS_AVERAGE_TOLERANCE = 0.1;
 
 exports.MIN_SPEED = 0.8;
 exports.MAX_SPEED = 16;

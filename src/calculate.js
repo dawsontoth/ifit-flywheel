@@ -2,17 +2,8 @@ let fs = require('fs'),
 	constants = require('./constants'),
 	ipc = require('./lib/ipc'),
 	utils = require('./lib/utils'),
-	findHighs = require('./calculate/findHighs'),
-	outliers = require('./calculate/outliers');
-
-/*
- Debugging.
- */
-let writeDebugLines = true,
-	waitFor = 10,
-	measureFor = 0,
-	measureCounter = 0,
-	computeAverageForRatio = null; // Set to null to turn off, [] to turn on.
+	web = require('./lib/web'),
+	findHighs = require('./calculate/findHighs');
 
 /*
  State.
@@ -24,6 +15,16 @@ let lastSpeed = 0,
 	smoothFor = 3,
 	smoothStore = {},
 	lastPassedAt = 0;
+
+/*
+ Debugging.
+ */
+let writeDebugLines = true,
+	waitFor = 10,
+	measureFor = 0,
+	measureCounter = 0,
+	computeAverageForRatio = null; // Set to null to turn off, [] to turn on.
+web.payload.Passes = passes;
 
 /*
  Initialization.
@@ -50,36 +51,40 @@ function updateCalculations() {
 			: (Date.now() - lastPassedAt)
 		: Number.MAX_SAFE_INTEGER,
 		sampledTime = 0,
-		trimTo = -1,
+		trimAfter = -1,
 		speedCalculated = false,
 		cadenceCalculated = false;
 
 	if (timeSinceLastPass > constants.SPEED_SAMPLE_PERIOD) {
-		calculateAndWriteSpeed(0, 0);
+		calculateSpeed(0, 0);
 		speedCalculated = true;
 	}
 	if (timeSinceLastPass > constants.CADENCE_SAMPLE_PERIOD) {
-		calculateAndWriteCadence(0, []);
+		calculateCadence(0, []);
 		cadenceCalculated = true;
 	}
 	if (passes.length === 0 || timeSinceLastPass > maxSampleTime) {
 		return;
 	}
-	for (let i = 0; i < passes.length; i++) {
-		sampledTime += passes[i];
+	let smoothedPasses = smoothArray(passes, 0.85);
+	if (web) {
+		web.payload.Passes = smoothedPasses;
+	}
+	for (let i = 0; i < smoothedPasses.length; i++) {
+		sampledTime += smoothedPasses[i];
 		if (!speedCalculated) {
 			if (sampledTime > constants.SPEED_SAMPLE_PERIOD) {
 				speedCalculated = true;
-				calculateAndWriteSpeed(sampledTime, i + 1);
+				calculateSpeed(sampledTime, i + 1);
 			}
 		}
 		if (sampledTime > maxSampleTime) {
-			trimTo = i;
+			trimAfter = i;
 		}
 		if (!cadenceCalculated) {
 			if (sampledTime > constants.CADENCE_SAMPLE_PERIOD) {
 				cadenceCalculated = true;
-				calculateAndWriteCadence(sampledTime, passes.slice(0, trimTo));
+				calculateCadence(sampledTime, smoothedPasses.slice(0, trimAfter));
 			}
 		}
 		if (sampledTime > maxSampleTime) {
@@ -87,21 +92,26 @@ function updateCalculations() {
 		}
 	}
 
-	if (trimTo >= 0) {
-		passes = passes.slice(0, trimTo);
+	if (trimAfter >= 0) {
+		passes.splice(trimAfter, passes.length - trimAfter);
 	}
 }
 
-function calculateAndWriteSpeed(elapsedTime, triggerCounter) {
+function calculateSpeed(elapsedTime, triggerCounter) {
 	let fullRotations = triggerCounter < 1 ? 0 : (triggerCounter / constants.OCCURRENCES_ON_THE_WHEEL),
 		totalSeconds = elapsedTime === 0 ? 0 : (elapsedTime / (constants.USE_HR_TIME ? constants.NANOSECONDS_IN_A_SECOND : constants.MILLISECONDS_IN_A_SECOND)),
 		rotationsPerSecond = fullRotations < 1 ? 0 : (fullRotations / totalSeconds),
 		beltMilesPerHour = fullRotations < 1 ? 0 : (rotationsPerSecond / constants.RPS_RATIO);
 
-	// let beltWithoutSmooth = beltMilesPerHour;
-	beltMilesPerHour = smooth('speed', beltMilesPerHour < constants.MIN_SPEED || beltMilesPerHour > constants.MAX_SPEED ? 0 : beltMilesPerHour);
+	let beltWithoutSmooth = beltMilesPerHour;
+	beltMilesPerHour = smoothValue('speed', beltMilesPerHour < constants.MIN_SPEED || beltMilesPerHour > constants.MAX_SPEED ? 0 : beltMilesPerHour);
 	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= constants.SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
 	lastSpeed = beltMilesPerHour;
+	if (web) {
+		web.payload.RotationsPerSecond = rotationsPerSecond;
+		web.payload.RawSpeed = beltWithoutSmooth;
+		web.payload.Speed = beltMilesPerHour;
+	}
 	ipc.send(ipc.keys.bluetooth, { speed: beltMilesPerHour });
 
 	if (writeDebugLines) {
@@ -125,7 +135,7 @@ function calculateAndWriteSpeed(elapsedTime, triggerCounter) {
 	}
 }
 
-function calculateAndWriteCadence(elapsedTime, passes) {
+function calculateCadence(elapsedTime, passes) {
 	if (significantSpeedShiftDetected) {
 		if (writeDebugLines) {
 			// console.log('Speed shift detected -- temporarily disabling cadence calculations.');
@@ -142,7 +152,11 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 			? 0
 			: Math.round(rawCadence);
 
-	cadence = smooth('cadence', lastSpeed < constants.MIN_SPEED ? 0 : cadence);
+	cadence = smoothValue('cadence', lastSpeed < constants.MIN_SPEED ? 0 : cadence);
+	if (web) {
+		web.payload.RawCadence = rawCadence;
+		web.payload.Cadence = cadence;
+	}
 
 	ipc.send(ipc.keys.bluetooth, { cadence: cadence });
 
@@ -157,7 +171,7 @@ function calculateAndWriteCadence(elapsedTime, passes) {
 	}
 }
 
-function smooth(key, val) {
+function smoothValue(key, val) {
 	if (!smoothFor) {
 		return val;
 	}
@@ -169,6 +183,20 @@ function smooth(key, val) {
 		smoothStore[key].shift();
 	}
 	return smoothStore[key].reduce((a, b) => a + b, 0) / smoothStore[key].length;
+}
+
+function smoothArray(values, alpha) {
+	let weighted = average(values) * alpha;
+	return values.map((curr, i) => {
+		let prev = i > 0 ? values[i - 1] : values[values.length - 1],
+			next = i < values.length - 1 ? values[i + 1] : values[0];
+		return Number(average([weighted, prev, curr, next]).toFixed(2));
+	});
+}
+
+function average(data) {
+	return data
+		.reduce((sum, value) => sum + value, 0) / data.length;
 }
 
 function noop(err) {

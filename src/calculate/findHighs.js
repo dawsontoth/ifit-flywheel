@@ -1,4 +1,5 @@
-let outliers = require('./outliers');
+let outliers = require('./outliers'),
+	web = require('../lib/web');
 
 module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 	// console.time('filtering');
@@ -14,6 +15,7 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 			delta >= toleranceMin
 			&& delta <= toleranceMax
 		);
+	web.payload.CadenceDelta = delta;
 	// console.log('Cadence Delta', delta);
 
 	if (foundSignificantChange) {
