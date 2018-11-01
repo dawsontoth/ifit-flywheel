@@ -25,6 +25,7 @@ let writeDebugLines = true,
 	measureCounter = 0,
 	computeAverageForRatio = [];
 web.payload.Passes = passes;
+web.payload.RotationsAvg = constants.KNOWN_RPS;
 
 /*
  Initialization.
@@ -108,7 +109,7 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 	lastSpeed = beltMilesPerHour;
 	if (web) {
 		web.payload.Rotations = rotationsPerSecond;
-		web.payload.RawSpeed = beltWithoutSmooth;
+		web.payload.SpeedRaw = beltWithoutSmooth;
 		web.payload.Speed = beltMilesPerHour;
 	}
 	ipc.send(ipc.keys.bluetooth, { speed: beltMilesPerHour });
@@ -117,7 +118,7 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 		computeAverageForRatio.push(rotationsPerSecond);
 	}
 	if (computeAverageForRatio.length && computeAverageForRatio.length % 30 === 0) {
-		web.payload.AvgRotations = computeAverageForRatio.reduce((a, b) => a + b, 0) / computeAverageForRatio.length;
+		web.payload.RotationsAvg = computeAverageForRatio.reduce((a, b) => a + b, 0) / computeAverageForRatio.length;
 		computeAverageForRatio = [];
 	}
 	if (writeDebugLines) {
@@ -148,7 +149,7 @@ function calculateCadence(elapsedTime, passes) {
 
 	cadence = smoothValue('cadence', lastSpeed < constants.MIN_SPEED ? 0 : cadence);
 	if (web) {
-		web.payload.RawCadence = rawCadence;
+		web.payload.CadenceRaw = rawCadence;
 		web.payload.Cadence = cadence;
 	}
 

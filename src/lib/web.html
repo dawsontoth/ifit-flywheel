@@ -2,6 +2,7 @@
 <head>
 	<script type="text/javascript" src="//www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript">
+		// TODO: Clean this up...
 		google.charts.load('current', { 'packages': ['corechart', 'gauge'] });
 		google.charts.setOnLoadCallback(drawChart);
 
@@ -13,12 +14,25 @@
 					curveType: 'function',
 					legend: { position: 'bottom' }
 				},
-				valuesElement = document.getElementById('valuesChart'),
-				valuesChart = new google.visualization.Gauge(valuesElement),
-				valuesOptions = {
-					min: 0, max: 200,
-					minorTicks: 10
-				};
+				valuesChartsElement = document.getElementById('valuesCharts'),
+				chartOptions = {
+					'Cadence': { min: 90, max: 230, yellowFrom: 190, yellowTo: 210, redFrom: 210, redTo: 230 },
+					'Cadence Raw': { min: 90, max: 230, yellowFrom: 190, yellowTo: 210, redFrom: 210, redTo: 230 },
+					'Cadence Delta': { min: 0, max: 100 },
+					'Rotations': { min: 0, max: 100 },
+					'Rotations Avg': { min: 0, max: 100 },
+					'Speed': { min: 0, max: 15, yellowFrom: 8, yellowTo: 11, redFrom: 11, redTo: 15 },
+					'Speed Raw': { min: 0, max: 15, yellowFrom: 8, yellowTo: 11, redFrom: 11, redTo: 15 }
+				},
+				valuesCharts = [
+					new google.visualization.Gauge(document.getElementById('chart0')),
+					new google.visualization.Gauge(document.getElementById('chart1')),
+					new google.visualization.Gauge(document.getElementById('chart2')),
+					new google.visualization.Gauge(document.getElementById('chart3')),
+					new google.visualization.Gauge(document.getElementById('chart4')),
+					new google.visualization.Gauge(document.getElementById('chart5')),
+					new google.visualization.Gauge(document.getElementById('chart6'))
+				];
 			updateChart();
 			setInterval(updateChart, 1000);
 
@@ -46,7 +60,6 @@
 							}
 						}
 						let valuesTable = [
-							['Label', 'Value']
 							// , ['Memory', 4]
 							// , ['CPU', 550]
 							// , ['Network', 68]
@@ -57,16 +70,25 @@
 							}
 						}
 						if (valuesTable.length > 1) {
-							if (valuesElement.classList.contains('faded')) {
-								valuesElement.classList.remove('faded');
+							if (valuesChartsElement.classList.contains('faded')) {
+								valuesChartsElement.classList.remove('faded');
 							}
 						}
 						else {
-							if (!valuesElement.classList.contains('faded')) {
-								valuesElement.classList.add('faded');
+							if (!valuesChartsElement.classList.contains('faded')) {
+								valuesChartsElement.classList.add('faded');
 							}
 						}
-						valuesChart.draw(google.visualization.arrayToDataTable(valuesTable), valuesOptions);
+
+						valuesTable
+							.sort((a, b) => a[0] > b[0] ? 1 : -1)
+							.forEach((pair, index) => {
+								let table = [
+									['Label', 'Value'],
+									pair
+								];
+								valuesCharts[index].draw(google.visualization.arrayToDataTable(table), chartOptions[pair[0]]);
+							});
 					});
 			}
 
@@ -111,7 +133,7 @@
 			flex-direction: column;
 		}
 
-		#valuesChart {
+		#valuesCharts {
 			flex: 1;
 		}
 
@@ -154,7 +176,15 @@
 <body>
 <div id="chartContainer">
 	<div id="valuesContainer">
-		<div id="valuesChart"></div>
+		<div id="valuesCharts">
+			<div id="chart0"></div>
+			<div id="chart1"></div>
+			<div id="chart2"></div>
+			<div id="chart3"></div>
+			<div id="chart4"></div>
+			<div id="chart5"></div>
+			<div id="chart6"></div>
+		</div>
 		<button id="saveRotations" type="button" onclick="saveRotations()">Save Rotations</button>
 	</div>
 	<div id="passesChart"></div>

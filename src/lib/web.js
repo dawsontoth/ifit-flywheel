@@ -25,7 +25,7 @@ http
 					response.end();
 					return;
 				case '/save-rotations':
-					constants.KNOWN_RPS = exports.payload.AvgRotations;
+					constants.KNOWN_RPS = exports.payload.RotationsAvg;
 					response.writeHead(200);
 					response.write('Saved');
 					response.end();
