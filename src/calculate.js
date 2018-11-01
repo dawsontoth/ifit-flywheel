@@ -23,7 +23,7 @@ let writeDebugLines = true,
 	waitFor = 10,
 	measureFor = 0,
 	measureCounter = 0,
-	computeAverageForRatio = null; // Set to null to turn off, [] to turn on.
+	computeAverageForRatio = [];
 web.payload.Passes = passes;
 
 /*
@@ -32,7 +32,7 @@ web.payload.Passes = passes;
 ipc.received = receivedData;
 ipc.boot(ipc.keys.calculate);
 updateCalculations();
-setInterval(updateCalculations, constants.UPDATE_EVERY_MILLISECONDS);
+setInterval(updateCalculations, constants.UPDATE_INTERVAL_TIMEOUT);
 require('death')(cleanUp);
 
 /*
@@ -55,13 +55,12 @@ function updateCalculations() {
 		speedCalculated = false,
 		cadenceCalculated = false;
 
-	if (timeSinceLastPass > constants.SPEED_SAMPLE_PERIOD) {
+	if (timeSinceLastPass > constants.MAX_DELAY_FOR_ZERO) {
 		calculateSpeed(0, 0);
-		speedCalculated = true;
-	}
-	if (timeSinceLastPass > constants.CADENCE_SAMPLE_PERIOD) {
 		calculateCadence(0, []);
+		speedCalculated = true;
 		cadenceCalculated = true;
+		return;
 	}
 	if (passes.length === 0 || timeSinceLastPass > maxSampleTime) {
 		return;
@@ -101,35 +100,30 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 	let fullRotations = triggerCounter < 1 ? 0 : (triggerCounter / constants.OCCURRENCES_ON_THE_WHEEL),
 		totalSeconds = elapsedTime === 0 ? 0 : (elapsedTime / (constants.USE_HR_TIME ? constants.NANOSECONDS_IN_A_SECOND : constants.MILLISECONDS_IN_A_SECOND)),
 		rotationsPerSecond = fullRotations < 1 ? 0 : (fullRotations / totalSeconds),
-		beltMilesPerHour = fullRotations < 1 ? 0 : (rotationsPerSecond / constants.RPS_RATIO);
+		beltMilesPerHour = fullRotations < 1 ? 0 : (rotationsPerSecond / constants.KNOWN_RPS / constants.KNOWN_MPH);
 
 	let beltWithoutSmooth = beltMilesPerHour;
 	beltMilesPerHour = smoothValue('speed', beltMilesPerHour < constants.MIN_SPEED || beltMilesPerHour > constants.MAX_SPEED ? 0 : beltMilesPerHour);
 	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= constants.SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
 	lastSpeed = beltMilesPerHour;
 	if (web) {
-		web.payload.RotationsPerSecond = rotationsPerSecond;
+		web.payload.Rotations = rotationsPerSecond;
 		web.payload.RawSpeed = beltWithoutSmooth;
 		web.payload.Speed = beltMilesPerHour;
 	}
 	ipc.send(ipc.keys.bluetooth, { speed: beltMilesPerHour });
 
+	if (rotationsPerSecond) {
+		computeAverageForRatio.push(rotationsPerSecond);
+	}
+	if (computeAverageForRatio.length && computeAverageForRatio.length % 30 === 0) {
+		web.payload.AvgRotations = computeAverageForRatio.reduce((a, b) => a + b, 0) / computeAverageForRatio.length;
+		computeAverageForRatio = [];
+	}
 	if (writeDebugLines) {
 		// console.log('~~~~~~~~~~~');
 		// console.log('Trigger Count:', triggerCounter);
 		// console.log('RPS:', rotationsPerSecond);
-		if (computeAverageForRatio) {
-			if (rotationsPerSecond) {
-				computeAverageForRatio.push(rotationsPerSecond);
-			}
-			if (computeAverageForRatio.length && computeAverageForRatio.length % 30 === 0) {
-				console.log(
-					'30 Second Average for Ratio:',
-					computeAverageForRatio.reduce((a, b) => a + b, 0) / computeAverageForRatio.length
-				);
-				computeAverageForRatio = [];
-			}
-		}
 		// console.log('Belt Raw:', beltWithoutSmooth + ' MPH');
 		// console.log('Belt Smoothed:', beltMilesPerHour + ' MPH');
 	}

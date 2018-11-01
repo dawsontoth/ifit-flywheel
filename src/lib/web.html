@@ -71,6 +71,12 @@
 			}
 
 		}
+
+		function saveRotations() {
+			fetch('/save-rotations')
+				.then(response => response.text())
+				.then(text => alert(text));
+		}
 	</script>
 	<style type="text/css">
 		html, body {
@@ -94,12 +100,34 @@
 			flex: 1;
 		}
 
-		#valuesChart {
+		#valuesContainer {
 			background-color: #eee;
 			border-right: 1px solid #ccc;
 			flex: initial;
-			width: 100px;
-			padding: 10px;
+			width: 120px;
+			display: flex;
+			align-items: stretch;
+			justify-content: stretch;
+			flex-direction: column;
+		}
+
+		#valuesChart {
+			flex: 1;
+		}
+
+		#saveRotations {
+			flex: initial;
+			background-color: #0a9e00;
+			color: white;
+			border: none;
+			font-weight: bold;
+			padding: 10px 0;
+			font-size: 1.2em;
+		}
+
+		#saveRotations:hover {
+			cursor: pointer;
+			background-color: #0cd000;
 		}
 
 		.faded {
@@ -125,7 +153,10 @@
 </head>
 <body>
 <div id="chartContainer">
-	<div id="valuesChart"></div>
+	<div id="valuesContainer">
+		<div id="valuesChart"></div>
+		<button id="saveRotations" type="button" onclick="saveRotations()">Save Rotations</button>
+	</div>
 	<div id="passesChart"></div>
 </div>
 </body>

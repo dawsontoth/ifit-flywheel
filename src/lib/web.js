@@ -3,6 +3,8 @@ let http = require('http'),
 	fs = require('fs'),
 	path = require('path');
 
+let constants = require('../constants');
+
 exports.payload = {};
 
 let baseDirectory = __dirname,
@@ -20,6 +22,12 @@ http
 				case '/payload.json':
 					response.writeHead(200);
 					response.write(JSON.stringify(exports.payload));
+					response.end();
+					return;
+				case '/save-rotations':
+					constants.KNOWN_RPS = exports.payload.AvgRotations;
+					response.writeHead(200);
+					response.write('Saved');
 					response.end();
 					return;
 			}

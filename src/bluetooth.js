@@ -46,8 +46,8 @@ bleno.on('stateChange', stateChanged);
 bleno.on('advertisingStart', advertisingStarted);
 ipc.received = receivedData;
 ipc.boot(ipc.keys.bluetooth);
-setInterval(calculateGainAndLoss, constants.UPDATE_EVERY_MILLISECONDS);
-setInterval(emitUpdates, constants.UPDATE_EVERY_MILLISECONDS / updateFPS);
+setInterval(calculateGainAndLoss, constants.UPDATE_INTERVAL_TIMEOUT);
+setInterval(emitUpdates, constants.UPDATE_INTERVAL_TIMEOUT / updateFPS);
 
 function stateChanged(state) {
 	if (state === 'poweredOn') {
