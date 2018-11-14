@@ -15,7 +15,7 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 			delta >= toleranceMin
 			&& delta <= toleranceMax
 		);
-	web.payload.CadenceDelta = delta;
+	web.payload.CadenceDelta = Math.round(delta * 1000) / 100;
 	// console.log('Cadence Delta', delta);
 
 	if (foundSignificantChange) {

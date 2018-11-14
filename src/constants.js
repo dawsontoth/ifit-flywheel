@@ -7,15 +7,18 @@ let USE_HR_TIME = true;
 
 let NANOSECONDS_IN_A_SECOND = 1e9;
 let MILLISECONDS_IN_A_SECOND = 1e3;
+let BASE_RPS = 33.00991828685567;
 module.exports = {
 
 	NAME: 'Truthmill',
+	IFIT_IP: '10.0.1.6',
 
+	BASE_RPS: BASE_RPS,
 	get KNOWN_RPS() {
-		return read('KNOWN_RPS', 33.00991828685567);
+		return read('KNOWN_RPS', BASE_RPS);
 	},
 	set KNOWN_RPS(val) {
-		write('KNOWN_RPS', 33.00991828685567, val);
+		write('KNOWN_RPS', BASE_RPS, val);
 	},
 	KNOWN_MPH: 6,
 

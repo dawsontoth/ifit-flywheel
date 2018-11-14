@@ -41,7 +41,7 @@
 					.then(response => response.json())
 					.then(function(data) {
 						let passesTable = [
-							['Pass', 'Magnitude']
+							['Pass', 'Milliseconds']
 						];
 						if (data.Passes && data.Passes.length) {
 							if (passesElement.classList.contains('faded')) {
@@ -50,7 +50,7 @@
 							data.Passes
 								.reverse()
 								.forEach((elapsed, index) => {
-									passesTable.push([String(index), elapsed || 0]);
+									passesTable.push([String(index), elapsed ? elapsed / 1e6 : 0]);
 								});
 							passesChart.draw(google.visualization.arrayToDataTable(passesTable), passesOptions);
 						}

@@ -3,12 +3,14 @@ let ipc = require('node-ipc');
 let ports = {
 	trigger: 8001,
 	calculate: 8002,
-	bluetooth: 8003
+	ifit: 8003,
+	bluetooth: 8004
 };
 
 exports.keys = {
 	trigger: 'trigger',
 	calculate: 'calculate',
+	ifit: 'ifit',
 	bluetooth: 'bluetooth'
 };
 

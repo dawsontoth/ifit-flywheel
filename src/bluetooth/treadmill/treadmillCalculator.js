@@ -41,7 +41,7 @@ function calculateHex(args) {
 	//   12. Force on Belt and Power Output Present
 	//   13-15. Reserved for Future Use
 	//                                                 0123456789012345
-	return utils.enforceLength(4, convertBase.bin2hex('0001110000000000'))
+	return utils.enforceLength(4, convertBase.bin2hex('1001110000000000'))
 		// instantaneous speed
 		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(kilometersPerHourRounded)))
 		// average speed

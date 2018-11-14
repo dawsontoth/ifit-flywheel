@@ -25,6 +25,7 @@ let writeDebugLines = true,
 	measureCounter = 0,
 	computeAverageForRatio = [];
 web.payload.Passes = passes;
+web.payload.CadenceDelta = 0;
 web.payload.RotationsAvg = constants.KNOWN_RPS;
 
 /*
@@ -101,7 +102,7 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 	let fullRotations = triggerCounter < 1 ? 0 : (triggerCounter / constants.OCCURRENCES_ON_THE_WHEEL),
 		totalSeconds = elapsedTime === 0 ? 0 : (elapsedTime / (constants.USE_HR_TIME ? constants.NANOSECONDS_IN_A_SECOND : constants.MILLISECONDS_IN_A_SECOND)),
 		rotationsPerSecond = fullRotations < 1 ? 0 : (fullRotations / totalSeconds),
-		beltMilesPerHour = fullRotations < 1 ? 0 : (rotationsPerSecond / constants.KNOWN_RPS / constants.KNOWN_MPH);
+		beltMilesPerHour = fullRotations < 1 ? 0 : (rotationsPerSecond / constants.KNOWN_RPS * constants.KNOWN_MPH);
 
 	let beltWithoutSmooth = beltMilesPerHour;
 	beltMilesPerHour = smoothValue('speed', beltMilesPerHour < constants.MIN_SPEED || beltMilesPerHour > constants.MAX_SPEED ? 0 : beltMilesPerHour);
