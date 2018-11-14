@@ -24,12 +24,12 @@ let baseElevationMeters = 100,
 	elevationLossMeters = 0,
 	current = {
 		mph: 0,
-		incline: 5,
+		incline: 10,
 		cadence: 0
 	},
 	ramps = {
 		mph: 0,
-		incline: 5,
+		incline: 10,
 		cadence: 0
 	},
 	services = [
@@ -135,7 +135,7 @@ function rampCurrentValue(key) {
 		ramps[key] = current[key];
 	}
 	else {
-		ramps[key] += step * (delta > 0 ? 1 : -1);
+		ramps[key] += delta * 0.1;
 	}
 	return ramps[key];
 }
