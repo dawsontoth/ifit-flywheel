@@ -10,8 +10,8 @@ let MILLISECONDS_IN_A_SECOND = 1e3;
 let BASE_RPS = 33.00991828685567;
 module.exports = {
 
-	NAME: 'Truthmill',
-	IFIT_IP: '10.0.1.6',
+	NAME: 'ProForm Pro 9000',
+	IFIT_IP: '192.168.1.241',
 
 	BASE_RPS: BASE_RPS,
 	get KNOWN_RPS() {
