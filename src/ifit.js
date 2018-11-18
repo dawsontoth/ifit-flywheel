@@ -35,26 +35,30 @@ client.on('connectFailed', function(error) {
 client.on('connect', connection => {
 	connected = true;
 	connection.on('message', message => {
-		let parsed = safeParse(message.utf8Data || message.data);
+		let parsed = safeParse(message.utf8Data || message.data),
+			changeDetected = false;
 		if (parsed.values) {
 			parsed = parsed.values;
 		}
 		if (parsed['MPH'] !== undefined) {
 			speed = parsed['MPH'];
+			web.payload.SpeedRaw = speed;
+			web.payload.RotationsAvg = speed < 0.1 ? constants.BASE_RPS : (speed / constants.KNOWN_MPH * constants.BASE_RPS);
+			speed = speed < 0.1 ? 0 : (speed / constants.KNOWN_RPS * constants.BASE_RPS);
+			// speed = speed < 0.1 ? 0 : (speed + 0.2);
+			web.payload.Speed = speed;
+			changeDetected = true;
+			cadence = speed > 0.1 ? 180 : 0;
 		}
 		if (parsed['Actual Incline'] !== undefined) {
 			incline = parsed['Actual Incline'];
+			changeDetected = true;
 		}
 		// console.log(parsed);
 		// console.log(speed, incline);
-		// TODO: Report heart rate, too?
-		// TODO: Any way to calculate cadence with iFit?
-		cadence = speed ? 180 : 0;
-		web.payload.RotationsAvg = speed === 0 ? 0 : (speed / constants.KNOWN_MPH * constants.KNOWN_RPS);
-		web.payload.SpeedRaw = speed;
-		let adjustedSpeed = speed === 0 ? 0 : (speed / constants.KNOWN_RPS * constants.BASE_RPS);
-		web.payload.Speed = adjustedSpeed;
-		ipc.send(ipc.keys.bluetooth, { speed: adjustedSpeed, cadence: cadence, incline: incline });
+		if (changeDetected) {
+			ipc.send(ipc.keys.bluetooth, { speed: speed, cadence: cadence, incline: incline });
+		}
 	});
 	connection.on('error', error => console.log('Connection Error: ' + error.toString()));
 	connection.on('close', () => {
