@@ -9,7 +9,7 @@ let fs = require('fs'),
  State.
  */
 let lastSpeed = 0,
-	significantSpeedShiftDetected = false,
+	cadenceFrozen = false,
 	passes = [],
 	maxSampleTime = Math.max(constants.SPEED_SAMPLE_PERIOD, constants.CADENCE_SAMPLE_PERIOD),
 	smoothFor = 3,
@@ -20,9 +20,6 @@ let lastSpeed = 0,
  Debugging.
  */
 let writeDebugLines = true,
-	waitFor = 10,
-	measureFor = 0,
-	measureCounter = 0,
 	computeAverageForRatio = [];
 web.payload.Passes = passes;
 web.payload.CadenceDelta = 0;
@@ -106,8 +103,11 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 
 	let beltWithoutSmooth = beltMilesPerHour;
 	beltMilesPerHour = smoothValue('speed', beltMilesPerHour < constants.MIN_SPEED || beltMilesPerHour > constants.MAX_SPEED ? 0 : beltMilesPerHour);
-	significantSpeedShiftDetected = Math.abs(lastSpeed - beltMilesPerHour) >= constants.SIGNIFICANT_SPEED_SHIFT_THRESHOLD;
 	lastSpeed = beltMilesPerHour;
+	if (Math.abs(lastSpeed - beltMilesPerHour) >= constants.SIGNIFICANT_SPEED_SHIFT_THRESHOLD) {
+		cadenceFrozen = true;
+		setTimeout(() => cadenceFrozen = false, constants.FREEZE_CADENCE_TIMEOUT);
+	}
 	if (web) {
 		web.payload.Rotations = rotationsPerSecond;
 		web.payload.SpeedRaw = beltWithoutSmooth;
@@ -132,7 +132,7 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 }
 
 function calculateCadence(elapsedTime, passes) {
-	if (significantSpeedShiftDetected) {
+	if (cadenceFrozen) {
 		if (writeDebugLines) {
 			// console.log('Speed shift detected -- temporarily disabling cadence calculations.');
 		}
@@ -155,16 +155,6 @@ function calculateCadence(elapsedTime, passes) {
 	}
 
 	ipc.send(ipc.keys.bluetooth, { cadence: cadence });
-
-	// if (writeDebugLines) {
-	// 	console.log('~~~~~~~~~~~');
-	// 	console.log('Raw Cadence:', rawCadence);
-	// 	console.log('Cadence:', cadence);
-	// }
-	if (measureFor >= 0 && --waitFor <= 0 && --measureFor >= 0) {
-		fs.writeFile('../data/cadence-passes-' + (measureCounter++) + '.json', JSON.stringify(passes), 'UTF-8', noop);
-		console.log('measuring ' + measureCounter);
-	}
 }
 
 function smoothValue(key, val) {
