@@ -10,7 +10,13 @@ let MILLISECONDS_IN_A_SECOND = 1e3;
 let BASE_RPS = 33.00991828685567;
 module.exports = {
 
-	NAME: 'ProForm Pro 9000',
+	get NAME() {
+		return read('NAME', 'Zwifit');
+	},
+	set NAME(val) {
+		write('NAME', 'Zwifit', val);
+	},
+	// TODO: How do I scan for the treadmill? Hard coding is lame...
 	IFIT_IP: '192.168.1.241',
 
 	BASE_RPS: BASE_RPS,
@@ -36,6 +42,7 @@ module.exports = {
 	MAX_CADENCE: 230,
 
 	METERS_PER_MILE: 1609.344,
+	IDLE_AFTER_SECONDS: 60 * 60, // 1 hour (in seconds)
 
 	SECONDS_PER_HOUR: 3600,
 	NANOSECONDS_IN_A_SECOND: NANOSECONDS_IN_A_SECOND,

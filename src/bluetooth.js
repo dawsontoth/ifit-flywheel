@@ -22,6 +22,7 @@ let baseElevationMeters = 100,
 	lastTrackedAt = process.hrtime(),
 	elevationGainMeters = 0,
 	elevationLossMeters = 0,
+	idleSecondsCount = 0,
 	current = {
 		mph: 0,
 		incline: 10,
@@ -91,6 +92,14 @@ function calculateGainAndLoss() {
 		}
 		else if (elevationDelta < 0) {
 			elevationLossMeters -= elevationDelta;
+		}
+	}
+	else if (current.mph <= 0) {
+		idleSecondsCount += 1;
+		if (idleSecondsCount >= constants.IDLE_AFTER_SECONDS) {
+			elevationGainMeters = 0;
+			elevationLossMeters = 0;
+			idleSecondsCount = 0;
 		}
 	}
 }

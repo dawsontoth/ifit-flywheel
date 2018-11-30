@@ -40,43 +40,43 @@ function calculateHex(args) {
 	//   11. Remaining Time Present
 	//   12. Force on Belt and Power Output Present
 	//   13-15. Reserved for Future Use
-	//                                                 0123456789012345
+	//                                                       0123456789012345
 	return utils.enforceLength(4, convertBase.bin2hex('1001110000000000'))
 		// instantaneous speed
 		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(kilometersPerHourRounded)))
 		// average speed
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
 		// total distance
-		+ utils.reverseBytes(utils.enforceLength(6, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(6, convertBase.dec2hex(0)))
 		// inclination
 		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(inclineRounded)))
 		// ramp angle setting
 		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(degreesRounded)))
 		// positive elevation gain
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(elevationGainRounded)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(elevationGainRounded)))
 		// negative elevation gain
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(elevationLossRounded)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(elevationLossRounded)))
 		// instantaneous pace
-		+ utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(kilometersPerMinuteRounded)))
+		// + utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(kilometersPerMinuteRounded)))
 		// average pace
-		+ utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
 		// total energy
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
 		// energy per hour
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
 		// energy per minute
-		+ utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
 		// heart rate
-		+ utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
 		// metabolic equivalent
-		+ utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(2, convertBase.dec2hex(0)))
 		// elapsed time
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
 		// remaining time
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
 		// force on belt
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
 		// power output
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
+		// + utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(0)))
 		;
 }
