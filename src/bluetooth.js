@@ -4,37 +4,37 @@ let constants = require('./constants');
 process.env['BLENO_DEVICE_NAME'] = constants.NAME;
 
 let bleno = require('bleno'),
-	_ = require('lodash'),
 	utils = require('./lib/utils'),
 	ipc = require('./lib/ipc'),
 	rscService = new (require('./bluetooth/rsc/service'))(),
 	rscCalculator = require('./bluetooth/rsc/calculator'),
-	treadmillService = new (require('./bluetooth/treadmill/treadmillService'))(),
-	treadmillCalculator = require('./bluetooth/treadmill/treadmillCalculator'),
-	environmentalSensingService = new (require('./bluetooth/environmental/service'))(),
-	environmentalSensingCalculator = require('./bluetooth/environmental/calculator');
+	treadmillService = new (require('./bluetooth/treadmill/service'))(),
+	treadmillCalculator = require('./bluetooth/treadmill/calculator');
 
 /*
  State.
  */
-let baseElevationMeters = 100,
-	updateFPS = 30,
-	lastTrackedAt = process.hrtime(),
+let updateFPS = 5,
+	lastTrackedAt,
 	elevationGainMeters = 0,
 	elevationLossMeters = 0,
 	idleSecondsCount = 0,
 	current = {
 		mph: 0,
-		incline: 10,
+		incline: 0,
 		cadence: 0
 	},
+	// current = {
+	// 	mph: 9,
+	// 	incline: 3,
+	// 	cadence: 172
+	// },
 	ramps = {
 		mph: 0,
-		incline: 10,
+		incline: 0,
 		cadence: 0
 	},
 	services = [
-		// environmentalSensingService,
 		rscService,
 		treadmillService
 	],
@@ -80,13 +80,11 @@ function receivedData(data) {
 }
 
 function calculateGainAndLoss() {
-	if (current.mph > 0 && Math.abs(current.incline) > 0) {
-		let metersTraveled = current.incline
-			/ constants.SECONDS_PER_HOUR
-			* constants.METERS_PER_MILE
-			* utils.convertElapsedToSeconds(process.hrtime(lastTrackedAt));
-		lastTrackedAt = process.hrtime();
-		let elevationDelta = metersTraveled * current.incline / 100;
+	if (lastTrackedAt && current.mph > 0 && Math.abs(current.incline) > 0) {
+		let seconds = utils.convertElapsedToSeconds(process.hrtime(lastTrackedAt)),
+			elevationDelta = (current.incline / 100)
+				* (current.mph / constants.SECONDS_PER_HOUR * seconds)
+				* constants.METERS_PER_MILE;
 		if (elevationDelta > 0) {
 			elevationGainMeters += elevationDelta;
 		}
@@ -102,41 +100,34 @@ function calculateGainAndLoss() {
 			idleSecondsCount = 0;
 		}
 	}
+	lastTrackedAt = process.hrtime();
 }
 
 function emitUpdates() {
+	let mph = rampCurrentValue('mph'),
+		cadence = rampCurrentValue('cadence'),
+		incline = rampCurrentValue('incline');
 	if (rscService.measurement.updateValueCallback) {
-		rscService.measurement.updateValueCallback(Buffer.from(rscCalculator.calculateHex({
-			mph: rampCurrentValue('mph'),
-			// miles: 3.1,
-			cadence: rampCurrentValue('cadence')
-		}), 'hex'));
+		rscService.measurement.updateValueCallback(rscCalculator.calculateBuffer({
+			mph,
+			cadence
+		}));
 	}
 	if (treadmillService.measurement.updateValueCallback) {
-		treadmillService.measurement.updateValueCallback(Buffer.from(treadmillCalculator.calculateHex({
-			mph: rampCurrentValue('mph'),
-			incline: rampCurrentValue('incline'),
+		treadmillService.measurement.updateValueCallback(treadmillCalculator.calculateBuffer({
+			mph,
+			incline,
 			elevation: {
 				gain: elevationGainMeters,
 				loss: elevationLossMeters
 			}
-		}), 'hex'));
-	}
-	let elevationValue = Buffer.from(environmentalSensingCalculator.calculateHex({
-		elevation: baseElevationMeters + elevationGainMeters + elevationLossMeters
-	}), 'hex');
-	environmentalSensingService.measurement.value = elevationValue;
-	if (environmentalSensingService.measurement.updateValueCallback) {
-		environmentalSensingService.measurement.updateValueCallback(elevationValue);
+		}));
 	}
 }
 
 function rampCurrentValue(key) {
-	//                 6mph
 	let currentValue = current[key],
-		//            4mph
 		rampedValue = ramps[key],
-		//      +2mph
 		delta = currentValue - rampedValue,
 		step = 0.2 / updateFPS;
 	// Are we within one step of the new value?
@@ -144,7 +135,7 @@ function rampCurrentValue(key) {
 		ramps[key] = current[key];
 	}
 	else {
-		ramps[key] += delta * 0.1;
+		ramps[key] += delta * 0.2;
 	}
 	return ramps[key];
 }

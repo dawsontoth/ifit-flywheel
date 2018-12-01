@@ -3,3 +3,4 @@ rsync -av -e ssh \
 	--exclude='constants.json'\
 	*\
 	pi@raspberrypi.local:~/Hall/
+ssh -t pi@raspberrypi.local "pm2 restart Bluetooth"

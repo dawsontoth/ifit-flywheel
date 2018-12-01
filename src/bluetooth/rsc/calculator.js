@@ -1,60 +1,39 @@
-let convertBase = require('../../lib/convertBase'),
-	utils = require('../../lib/utils');
+let utils = require('../../lib/utils');
 
 let metersPerMile = 1609.344;
 let secondsPerHour = 3600;
 let secondsPerMinute = 60;
 
-exports.calculateHex = calculateHex;
+exports.calculateBuffer = calculateBuffer;
 
-// debugHex(
-// 	calculateHex({
-// 		mph: 6,
-// 		cadence: 172
-// 	})
-// );
+// console.log(calculateBuffer({ mph: 6, cadence: 172 }).toString('hex'));
 
-function calculateHex(args) {
-	let metersPerSecond = args.mph / secondsPerHour * metersPerMile,
+function calculateBuffer(args) {
+	let mph = args.mph,
+		cadence = args.cadence;
+
+	let metersPerSecond = mph ? mph / secondsPerHour * metersPerMile : 0,
 		metersPerMinute = metersPerSecond * secondsPerMinute,
 		metersPerSecondRounded = Math.round(metersPerSecond * 256),
-		reportDistance = args.miles !== undefined && args.miles !== null,
-		meters = reportDistance ? args.miles * metersPerMile : 0,
-		metersRounded = Math.round(meters * 10),
-		stepsPerMinute = Math.round(args.cadence),
-		metersPerStep = metersPerMinute / stepsPerMinute,
+		stepsPerMinute = Math.round(cadence),
+		metersPerStep = (metersPerMinute && stepsPerMinute) ? metersPerMinute / stepsPerMinute : 0,
 		metersPerStepRounded = Math.round(metersPerStep * 100),
-		strideLengthBit = '1',
-		totalDistanceBit = reportDistance ? '1' : '0',
-		runningBit = args.mph >= 5 ? '1' : '0';
-	// flags
-	//      speed
-	//              cadence
-	//                   stride length
-	//                           distance
-	// 01   23 45   67   89 01   23 45 67 89
-	// 07 - b5,06 - a0 - 00,00 - 3e,2a,00,00
-	return utils.enforceLength(2, convertBase.bin2hex('00000' + strideLengthBit + totalDistanceBit + runningBit))
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(metersPerSecondRounded)))
-		+ utils.enforceLength(2, convertBase.dec2hex(stepsPerMinute))
-		+ utils.reverseBytes(utils.enforceLength(4, convertBase.dec2hex(metersPerStepRounded)))
-		+ utils.reverseBytes(utils.enforceLength(8, convertBase.dec2hex(metersRounded)));
-}
+		flags = {
+			InstantaneousStrideLengthPresent: false,
+			TotalDistancePresent: false,
+			WalkingOrRunningStatusBits: mph >= 5,
+			ReservedForFutureUse1: false,
+			ReservedForFutureUse2: false,
+			ReservedForFutureUse3: false,
+			ReservedForFutureUse4: false,
+			ReservedForFutureUse5: false
+		};
 
-function debugHex(hex) {
-	let flags = convertBase.hex2bin(hex.substr(0, 2)),
-		metersPerSecond = convertBase.hex2dec(utils.reverseBytes(hex.substr(2, 4))) / 256,
-		milesPerHour = metersPerSecond / metersPerMile * 3600,
-		cadence = convertBase.hex2dec(hex.substr(6, 2)),
-		strideMeters = convertBase.hex2dec(utils.reverseBytes(hex.substr(8, 4))) / 100,
-		meters = convertBase.hex2dec(utils.reverseBytes(hex.substr(12, 8))) / 10;
-	console.log(
-		hex
-		+ ' | flags: ' + flags
-		+ ' | cadence: ' + cadence
-		+ ' | m/s: ' + metersPerSecond
-		+ ' | mph: ' + milesPerHour
-		+ ' | stride m: ' + strideMeters
-		+ ' | distance meters: ' + meters
-	);
+	return utils
+		.bufferHelper()
+		.write(8, utils.convertFlags(flags))
+		.write(16, metersPerSecondRounded)
+		.write(8, stepsPerMinute)
+		// .write(16, metersPerStepRounded)
+		.finish();
 }

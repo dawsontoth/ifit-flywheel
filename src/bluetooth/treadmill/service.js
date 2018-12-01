@@ -3,14 +3,14 @@ let util = require('util'),
 	constants = require('../../constants');
 
 function TreadmillService() {
-	this.measurement = new (require('./treadmillDataCharacteristic'))();
+	this.measurement = new (require('./dataCharacteristic'))();
 
 	TreadmillService.super_.call(this, {
 		name: constants.NAME,
 		uuid: '1826',
 		characteristics: [
 			this.measurement,
-			new (require('./treadmillFeatureCharacteristic'))()
+			new (require('./featureCharacteristic'))()
 		]
 	});
 }
