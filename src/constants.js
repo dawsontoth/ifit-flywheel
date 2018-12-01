@@ -10,8 +10,9 @@ let MILLISECONDS_IN_A_SECOND = 1e3;
 let BASE_RPS = 33.00991828685567;
 module.exports = {
 
+	// TODO: Need an easy way for users to configure the name and IP.
 	get NAME() {
-		return read('NAME', 'Zwifit');
+		return read('NAME', 'ProForm Pro 9000');
 	},
 	set NAME(val) {
 		write('NAME', 'Zwifit', val);
