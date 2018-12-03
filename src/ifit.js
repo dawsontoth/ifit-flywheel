@@ -1,7 +1,7 @@
 let WebSocket = require('websocket'),
 	constants = require('./constants'),
 	ipc = require('./lib/ipc'),
-	web = require('./lib/web');
+	web = require('./web');
 
 /*
  State.

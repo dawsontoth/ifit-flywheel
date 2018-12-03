@@ -1,5 +1,5 @@
 let outliers = require('./outliers'),
-	web = require('../lib/web');
+	web = require('../web');
 
 module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 	// console.time('filtering');

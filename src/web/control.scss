@@ -1,0 +1,77 @@
+html, body {
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+}
+
+ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: flex;
+	flex-direction: row;
+	text-align: center;
+
+	li {
+		margin: 0;
+		padding: 0;
+		flex: 1;
+	}
+
+	.btn {
+		width: 100%;
+		font-size: 3em;
+		background: none;
+	}
+}
+
+.targets,
+.increments,
+.current {
+	flex: initial;
+	background-color: black;
+
+	.btn {
+		width: 100%;
+		font-size: 2em;
+		color: #fff;
+
+		&:hover {
+			color: #ccc;
+		}
+
+		&.active {
+			color: #00db00;
+		}
+	}
+
+	.read-only {
+		width: 100%;
+		font-size: 3em;
+		color: #aaa;
+		text-align: center;
+	}
+}
+
+.values {
+	flex: 1;
+
+	.btn {
+		width: 32%;
+		height: 24%;
+
+		&:hover {
+			color: #a00;
+		}
+		&:active {
+			color: #f00;
+		}
+	}
+}

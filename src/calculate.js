@@ -1,8 +1,7 @@
-let fs = require('fs'),
-	constants = require('./constants'),
+let constants = require('./constants'),
 	ipc = require('./lib/ipc'),
 	utils = require('./lib/utils'),
-	web = require('./lib/web'),
+	web = require('./web'),
 	findHighs = require('./calculate/findHighs');
 
 /*
@@ -30,6 +29,7 @@ web.payload.RotationsAvg = constants.KNOWN_RPS;
  */
 ipc.received = receivedData;
 ipc.boot(ipc.keys.calculate);
+web.ipc = ipc;
 updateCalculations();
 setInterval(updateCalculations, constants.UPDATE_INTERVAL_TIMEOUT);
 require('death')(cleanUp);
