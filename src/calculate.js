@@ -18,7 +18,7 @@ let lastSpeed = 0,
 /*
  Debugging.
  */
-let writeDebugLines = true,
+let writeDebugLines = false,
 	computeAverageForRatio = [];
 web.payload.Passes = passes;
 web.payload.CadenceDelta = 0;
@@ -29,7 +29,6 @@ web.payload.RotationsAvg = constants.KNOWN_RPS;
  */
 ipc.received = receivedData;
 ipc.boot(ipc.keys.calculate);
-web.ipc = ipc;
 updateCalculations();
 setInterval(updateCalculations, constants.UPDATE_INTERVAL_TIMEOUT);
 require('death')(cleanUp);
@@ -113,7 +112,7 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 		web.payload.SpeedRaw = beltWithoutSmooth;
 		web.payload.Speed = beltMilesPerHour;
 	}
-	ipc.send(ipc.keys.bluetooth, { speed: beltMilesPerHour });
+	ipc.send(ipc.keys.ifit, { speed: beltMilesPerHour });
 
 	if (rotationsPerSecond) {
 		computeAverageForRatio.push(rotationsPerSecond);
@@ -123,18 +122,18 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 		computeAverageForRatio = [];
 	}
 	if (writeDebugLines) {
-		// console.log('~~~~~~~~~~~');
-		// console.log('Trigger Count:', triggerCounter);
-		// console.log('RPS:', rotationsPerSecond);
-		// console.log('Belt Raw:', beltWithoutSmooth + ' MPH');
-		// console.log('Belt Smoothed:', beltMilesPerHour + ' MPH');
+		console.log('~~~~~~~~~~~');
+		console.log('Trigger Count:', triggerCounter);
+		console.log('RPS:', rotationsPerSecond);
+		console.log('Belt Raw:', beltWithoutSmooth + ' MPH');
+		console.log('Belt Smoothed:', beltMilesPerHour + ' MPH');
 	}
 }
 
 function calculateCadence(elapsedTime, passes) {
 	if (cadenceFrozen) {
 		if (writeDebugLines) {
-			// console.log('Speed shift detected -- temporarily disabling cadence calculations.');
+			console.log('Speed shift detected -- temporarily disabling cadence calculations.');
 		}
 		return;
 	}
@@ -154,7 +153,7 @@ function calculateCadence(elapsedTime, passes) {
 		web.payload.Cadence = cadence;
 	}
 
-	ipc.send(ipc.keys.bluetooth, { cadence: cadence });
+	ipc.send(ipc.keys.ifit, { cadence: cadence });
 }
 
 function smoothValue(key, val) {
@@ -183,12 +182,6 @@ function smoothArray(values, alpha) {
 function average(data) {
 	return data
 		.reduce((sum, value) => sum + value, 0) / data.length;
-}
-
-function noop(err) {
-	if (err) {
-		console.error(err);
-	}
 }
 
 function cleanUp() {

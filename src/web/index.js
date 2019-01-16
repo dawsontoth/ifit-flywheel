@@ -6,10 +6,9 @@ let http = require('http'),
 let constants = require('../constants');
 
 exports.payload = {};
-exports.ipc = null;
 
 let baseDirectory = __dirname,
-	port = 1337,
+	port = 1338,
 	staticFiles = {};
 
 fs.readdirSync(baseDirectory)
@@ -38,24 +37,6 @@ http
 					response.writeHead(200);
 					response.write(JSON.stringify(exports.payload));
 					response.end();
-					return;
-				case '/set':
-					let body = [];
-					request
-						.on('data', (chunk) => {
-							body.push(chunk);
-						})
-						.on('end', () => {
-							body = Buffer.concat(body).toString();
-							let ipc = exports.ipc,
-								parts = body.split('=');
-							if (ipc && ['Incline', 'Speed', 'Cadence'].indexOf(parts[0]) >= 0) {
-								ipc.send(ipc.keys.bluetooth, { [parts[0].toLowerCase()]: parseFloat(parts[1]) });
-							}
-							response.writeHead(200);
-							response.write('Set!');
-							response.end();
-						});
 					return;
 				case '/save-rotations':
 					constants.KNOWN_RPS = exports.payload.RotationsAvg;

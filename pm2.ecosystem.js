@@ -13,8 +13,8 @@ module.exports = {
 			watch: false
 		},
 		{
-			name: 'Bluetooth',
-			script: 'src/bluetooth.js',
+			name: 'iFit Emulator',
+			script: 'src/ifit.js',
 			autorestart: true,
 			watch: false
 		}
