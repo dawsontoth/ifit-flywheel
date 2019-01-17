@@ -19,7 +19,7 @@ module.exports = {
 	},
 	KNOWN_MPH: 6,
 
-	INPUT_PIN: 27, // 4: physical pin 7, 17 is 2 below it, at physical pin 11
+	INPUT_PIN: 21,
 	// https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/#prettyPhoto/0/
 	OCCURRENCES_ON_THE_WHEEL: 1,
 	USE_HR_TIME: USE_HR_TIME,
