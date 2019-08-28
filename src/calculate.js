@@ -9,6 +9,7 @@ let constants = require('./constants'),
  */
 let lastSpeed = 0,
 	cadenceFrozen = false,
+	cadenceFrozenHandle = 0,
 	passes = [],
 	maxSampleTime = Math.max(constants.SPEED_SAMPLE_PERIOD, constants.CADENCE_SAMPLE_PERIOD),
 	smoothFor = 3,
@@ -105,7 +106,13 @@ function calculateSpeed(elapsedTime, triggerCounter) {
 	lastSpeed = beltMilesPerHour;
 	if (Math.abs(lastSpeed - beltMilesPerHour) >= constants.SIGNIFICANT_SPEED_SHIFT_THRESHOLD) {
 		cadenceFrozen = true;
-		setTimeout(() => cadenceFrozen = false, constants.FREEZE_CADENCE_TIMEOUT);
+		if (cadenceFrozenHandle) {
+			clearTimeout(cadenceFrozenHandle);
+		}
+		cadenceFrozenHandle = setTimeout(() => {
+			cadenceFrozenHandle = null;
+			cadenceFrozen = false;
+		}, constants.FREEZE_CADENCE_TIMEOUT);
 	}
 	if (web) {
 		web.payload.Rotations = rotationsPerSecond;
