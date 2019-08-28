@@ -1,4 +1,3 @@
-import * as web from '../web';
 
 export function findHighs(on, toleranceMin, toleranceMax) {
 	let avg = average(on),
@@ -10,7 +9,6 @@ export function findHighs(on, toleranceMin, toleranceMax) {
 			delta >= toleranceMin
 			&& delta <= toleranceMax
 		);
-	web.payload.CadenceDelta = Math.round(delta * 1000) / 100;
 
 	if (foundSignificantChange) {
 		let isHigh = false,

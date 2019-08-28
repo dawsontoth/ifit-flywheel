@@ -23,7 +23,6 @@ let lastSpeed = 0,
 let writeDebugLines = false,
 	computeAverageForRatio: number[] = [];
 web.payload.Passes = passes;
-web.payload.CadenceDelta = 0;
 web.payload.RotationsAvg = constants.readKnownRPS();
 
 /*
