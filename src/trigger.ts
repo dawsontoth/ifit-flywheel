@@ -3,7 +3,7 @@ import fs from 'fs';
 import { Gpio as GPIO } from 'onoff';
 import * as constants from './constants';
 import * as ipc from './lib/ipc';
-import * as utils from './lib/utils';
+import * as utils from './lib/math';
 
 /*
  State.

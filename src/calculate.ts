@@ -2,7 +2,8 @@ import { calculateRawCadence } from './calculate/cadence';
 import { calculateRawSpeed } from './calculate/speed';
 import * as constants from './constants';
 import * as ipc from './lib/ipc';
-import * as utils from './lib/utils';
+import * as utils from './lib/math';
+import { average } from './lib/math';
 import * as web from './web';
 
 /*
@@ -172,11 +173,6 @@ function smoothArray(values, alpha) {
 			next = i < values.length - 1 ? values[i + 1] : values[0];
 		return Number(average([weighted, prev, curr, next]).toFixed(2));
 	});
-}
-
-function average(data) {
-	return data
-		.reduce((sum, value) => sum + value, 0) / data.length;
 }
 
 function cleanUp() {

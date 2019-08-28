@@ -7,3 +7,11 @@ export function convertElapsedToNanoseconds(elapsed) {
 export function convertElapsedToSeconds(elapsed) {
 	return convertElapsedToNanoseconds(elapsed) / constants.NANOSECONDS_IN_A_SECOND;
 }
+
+export function average(data) {
+	return sum(data) / data.length;
+}
+
+export function sum(data) {
+	return data.reduce((sum, value) => sum + value, 0);
+}

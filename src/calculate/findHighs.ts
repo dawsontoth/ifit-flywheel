@@ -1,3 +1,4 @@
+import { average } from '../lib/math';
 
 export function findHighs(on, toleranceMin, toleranceMax) {
 	let avg = average(on),
@@ -37,8 +38,4 @@ export function findHighs(on, toleranceMin, toleranceMax) {
 		});
 	}
 	return highsFound;
-}
-
-export function average(list) {
-	return list.reduce((a, b) => a + b, 0) / list.length;
 }
