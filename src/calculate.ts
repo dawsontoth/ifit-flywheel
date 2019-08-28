@@ -140,7 +140,7 @@ function calculateCadence(elapsedTime, passes) {
 		}
 		return;
 	}
-	const rawCadence = calculateRawCadence(elapsedTime, passes);
+	const rawCadence = calculateRawCadence(elapsedTime, passes, constants.HIGHS_TOLERANCE_MIN_PERCENT, constants.HIGHS_TOLERANCE_MAX_PERCENT);
 	let cadence = (rawCadence < constants.MIN_CADENCE || rawCadence > constants.MAX_CADENCE)
 		? 0
 		: Math.round(rawCadence);
