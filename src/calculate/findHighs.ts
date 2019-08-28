@@ -1,11 +1,6 @@
-let outliers = require('./outliers'),
-	web = require('../web');
+import * as web from '../web';
 
-module.exports = function findHighs(on, toleranceMin, toleranceMax) {
-	// console.time('filtering');
-	// on = outliers.filter(on);
-	// console.timeEnd('filtering');
-
+export function findHighs(on, toleranceMin, toleranceMax) {
 	let avg = average(on),
 		max = Math.max(...on),
 		diff = max - avg,
@@ -16,7 +11,6 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 			&& delta <= toleranceMax
 		);
 	web.payload.CadenceDelta = Math.round(delta * 1000) / 100;
-	// console.log('Cadence Delta', delta);
 
 	if (foundSignificantChange) {
 		let isHigh = false,
@@ -32,8 +26,7 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 					isHigh = false;
 					lowCount = 0;
 				}
-			}
-			else {
+			} else {
 				if (value > avg) {
 					highCount += 1;
 				}
@@ -46,8 +39,8 @@ module.exports = function findHighs(on, toleranceMin, toleranceMax) {
 		});
 	}
 	return highsFound;
-};
+}
 
-function average(list) {
+export function average(list) {
 	return list.reduce((a, b) => a + b, 0) / list.length;
 }

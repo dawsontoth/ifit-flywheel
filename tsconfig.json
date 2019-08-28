@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"baseUrl": "./src",
+		"target": "es5",
+		"module": "commonjs",
+		"lib": [
+			"dom",
+			"es2015",
+			"es2015.iterable"
+		],
+		"downlevelIteration": true,
+		"strict": true,
+		"esModuleInterop": true,
+		"sourceMap": true,
+		"noImplicitAny": false,
+		"noImplicitThis": true,
+		"strictNullChecks": true,
+		"outDir": "./out"
+	},
+	"include": [
+		"./src/**/*"
+	],
+	"exclude": [
+		"./node_modules"
+	]
+}

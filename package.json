@@ -1,6 +1,13 @@
 {
   "name": "ifit-flywheel",
   "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "build-watch": "tsc -w",
+    "start-trigger": "npm run-script build && node out/trigger.js",
+    "start-calculate": "npm run-script build && node out/calculate.js",
+    "start-ifit": "npm run-script build && node out/ifit.js"
+  },
   "dependencies": {
     "death": "^1.1.0",
     "lodash": "^4.17.10",
@@ -8,5 +15,9 @@
     "onoff": "^3.2.1",
     "rpio": "^0.9.22",
     "websocket": "^1.0.28"
+  },
+  "devDependencies": {
+    "@types/node": "^12.7.2",
+    "typescript": "^3.5.3"
   }
 }

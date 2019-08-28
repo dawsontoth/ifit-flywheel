@@ -1,34 +1,35 @@
-let constants = require('./constants'),
-	ipc = require('./lib/ipc'),
-	utils = require('./lib/utils'),
-	web = require('./web'),
-	findHighs = require('./calculate/findHighs');
+import { calculateRawCadence } from './calculate/cadence';
+import { calculateRawSpeed } from './calculate/speed';
+import * as constants from './constants';
+import * as ipc from './lib/ipc';
+import * as utils from './lib/utils';
+import * as web from './web';
 
 /*
  State.
  */
 let lastSpeed = 0,
 	cadenceFrozen = false,
-	cadenceFrozenHandle = 0,
-	passes = [],
+	cadenceFrozenHandle: null | any = null,
+	passes: number[] = [],
 	maxSampleTime = Math.max(constants.SPEED_SAMPLE_PERIOD, constants.CADENCE_SAMPLE_PERIOD),
 	smoothFor = 3,
 	smoothStore = {},
-	lastPassedAt = 0;
+	lastPassedAt: any = 0;
 
 /*
  Debugging.
  */
 let writeDebugLines = false,
-	computeAverageForRatio = [];
+	computeAverageForRatio: number[] = [];
 web.payload.Passes = passes;
 web.payload.CadenceDelta = 0;
-web.payload.RotationsAvg = constants.KNOWN_RPS;
+web.payload.RotationsAvg = constants.readKnownRPS();
 
 /*
  Initialization.
  */
-ipc.received = receivedData;
+ipc.setReceived(receivedData);
 ipc.boot(ipc.keys.calculate);
 updateCalculations();
 setInterval(updateCalculations, constants.UPDATE_INTERVAL_TIMEOUT);
@@ -96,13 +97,8 @@ function updateCalculations() {
 }
 
 function calculateSpeed(elapsedTime, triggerCounter) {
-	let fullRotations = triggerCounter < 1 ? 0 : (triggerCounter / constants.OCCURRENCES_ON_THE_WHEEL),
-		totalSeconds = elapsedTime === 0 ? 0 : (elapsedTime / (constants.USE_HR_TIME ? constants.NANOSECONDS_IN_A_SECOND : constants.MILLISECONDS_IN_A_SECOND)),
-		rotationsPerSecond = fullRotations < 1 ? 0 : (fullRotations / totalSeconds),
-		beltMilesPerHour = fullRotations < 1 ? 0 : (rotationsPerSecond / constants.KNOWN_RPS * constants.KNOWN_MPH);
-
-	let beltWithoutSmooth = beltMilesPerHour;
-	beltMilesPerHour = smoothValue('speed', beltMilesPerHour < constants.MIN_SPEED || beltMilesPerHour > constants.MAX_SPEED ? 0 : beltMilesPerHour);
+	const { speed: beltWithoutSmooth, rotationsPerSecond } = calculateRawSpeed(elapsedTime, triggerCounter);
+	const beltMilesPerHour = smoothValue('speed', beltWithoutSmooth < constants.MIN_SPEED || beltWithoutSmooth > constants.MAX_SPEED ? 0 : beltWithoutSmooth);
 	lastSpeed = beltMilesPerHour;
 	if (Math.abs(lastSpeed - beltMilesPerHour) >= constants.SIGNIFICANT_SPEED_SHIFT_THRESHOLD) {
 		cadenceFrozen = true;
@@ -144,22 +140,15 @@ function calculateCadence(elapsedTime, passes) {
 		}
 		return;
 	}
-	let slowTriggerPasses = passes.length && findHighs(passes, constants.HIGHS_TOLERANCE_MIN_PERCENT, constants.HIGHS_TOLERANCE_MAX_PERCENT),
-		slowWheelPasses = slowTriggerPasses ? slowTriggerPasses / constants.OCCURRENCES_ON_THE_WHEEL : 0,
-		elapsedSeconds = elapsedTime / (constants.USE_HR_TIME ? constants.NANOSECONDS_IN_A_SECOND : constants.MILLISECONDS_IN_A_SECOND),
-		rawCadence = slowWheelPasses
-			? slowWheelPasses / elapsedSeconds * 60
-			: 0,
-		cadence = (rawCadence < constants.MIN_CADENCE || rawCadence > constants.MAX_CADENCE)
-			? 0
-			: Math.round(rawCadence);
-
+	const rawCadence = calculateRawCadence(elapsedTime, passes);
+	let cadence = (rawCadence < constants.MIN_CADENCE || rawCadence > constants.MAX_CADENCE)
+		? 0
+		: Math.round(rawCadence);
 	cadence = smoothValue('cadence', lastSpeed < constants.MIN_SPEED ? 0 : cadence);
 	if (web) {
 		web.payload.CadenceRaw = rawCadence;
 		web.payload.Cadence = cadence;
 	}
-
 	ipc.send(ipc.keys.ifit, { cadence: cadence });
 }
 
@@ -194,8 +183,7 @@ function average(data) {
 function cleanUp() {
 	try {
 		ipc.stop();
-	}
-	catch (err) {
+	} catch (err) {
 		console.error(err);
 	}
 	process.exit(0);

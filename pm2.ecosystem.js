@@ -2,19 +2,19 @@ module.exports = {
 	apps: [
 		{
 			name: 'Trigger',
-			script: 'src/trigger.js',
+			script: 'out/trigger.js',
 			autorestart: true,
 			watch: false
 		},
 		{
 			name: 'Calculate',
-			script: 'src/calculate.js',
+			script: 'out/calculate.js',
 			autorestart: true,
 			watch: false
 		},
 		{
 			name: 'iFit Emulator',
-			script: 'src/ifit.js',
+			script: 'out/ifit.js',
 			autorestart: true,
 			watch: false
 		}

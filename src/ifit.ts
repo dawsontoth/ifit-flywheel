@@ -1,6 +1,7 @@
-let ipc = require('./lib/ipc'),
-	WebSocketServer = require('websocket').server,
-	http = require('http');
+import death from 'death';
+import http from 'http';
+import { server as WebSocketServer } from 'websocket';
+import * as ipc from './lib/ipc';
 
 /*
  State.
@@ -9,22 +10,22 @@ let wsServer,
 	httpServer,
 	latest = {
 		Cadence: '0',
-		MPH: '0'
+		MPH: '0',
 	};
 
 /*
  Initialization.
  */
-ipc.received = receivedData;
+ipc.setReceived(receivedData);
 ipc.boot(ipc.keys.ifit);
 httpServer = http.createServer(respondToHTTP);
 httpServer.listen(8080, serverListening);
 wsServer = new WebSocketServer({
 	httpServer: httpServer,
-	autoAcceptConnections: true
+	autoAcceptConnections: true,
 });
 wsServer.on('connect', onConnect);
-require('death')(cleanUp);
+death(cleanUp);
 
 /*
  Implementation.
@@ -77,8 +78,7 @@ function cleanUp() {
 	try {
 		ipc.stop();
 		wsServer.shutDown();
-	}
-	catch (err) {
+	} catch (err) {
 		console.error(err);
 	}
 	process.exit(0);

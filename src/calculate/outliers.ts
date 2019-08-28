@@ -1,7 +1,4 @@
-exports.calculate = calculate;
-exports.filter = filter;
-
-function calculate(someArray) {
+export function calculate(someArray) {
 	let values, q1, q3, iqr, maxValue, minValue;
 
 	values = someArray.slice().sort((a, b) => a - b);//copy array fast and sort
@@ -22,7 +19,7 @@ function calculate(someArray) {
 	return { min: minValue, max: maxValue };
 }
 
-function filter(someArray) {
+export function filter(someArray) {
 	if (someArray.length < 4) {
 		return someArray;
 	}

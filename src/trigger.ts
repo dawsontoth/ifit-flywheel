@@ -1,17 +1,18 @@
-let fs = require('fs'),
-	GPIO = require('onoff').Gpio,
-	constants = require('./constants'),
-	utils = require('./lib/utils'),
-	ipc = require('./lib/ipc');
+import death from 'death';
+import fs from 'fs';
+import { Gpio as GPIO } from 'onoff';
+import * as constants from './constants';
+import * as ipc from './lib/ipc';
+import * as utils from './lib/utils';
 
 /*
  State.
  */
 let trigger = new GPIO(constants.INPUT_PIN, 'in', 'rising'),
-	passHistory = [],
-	lastPassedAt = 0,
+	passHistory: number[] = [],
+	lastPassedAt: any = 0,
 	passesAveraged = 0,
-	rawHistoryForDump = [],
+	rawHistoryForDump: number[] = [],
 	shouldDump = false,
 	ignoreFirstDump = true;
 
@@ -20,7 +21,7 @@ let trigger = new GPIO(constants.INPUT_PIN, 'in', 'rising'),
  */
 ipc.boot(ipc.keys.trigger);
 trigger.watch(triggerPassed);
-require('death')(cleanUp);
+death(cleanUp);
 shouldDump && setInterval(dumpPasses, 60 * 1000);
 
 /*
@@ -49,8 +50,7 @@ function triggerPassed(err) {
 				// console.log('Deviant pass detected, smoothing:', elapsedTime, recentPassesAverage, percentDeviation);
 				elapsedTime = recentPassesAverage;
 				passesAveraged += 1;
-			}
-			else {
+			} else {
 				passesAveraged = Math.max(passesAveraged - 1, 0);
 			}
 			passHistory.pop();
@@ -78,8 +78,7 @@ function cleanUp() {
 	try {
 		ipc.stop();
 		trigger.unexport();
-	}
-	catch (err) {
+	} catch (err) {
 		console.error(err);
 	}
 	process.exit(0);

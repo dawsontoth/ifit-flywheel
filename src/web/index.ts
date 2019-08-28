@@ -1,13 +1,12 @@
-let http = require('http'),
-	url = require('url'),
-	fs = require('fs'),
-	path = require('path');
+import fs from 'fs';
+import http from 'http';
+import path from 'path';
+import url from 'url';
+import * as constants from '../constants';
 
-let constants = require('../constants');
+export let payload: any = {};
 
-exports.payload = {};
-
-let baseDirectory = __dirname,
+let baseDirectory = path.resolve(path.join(__dirname, '../../src/web')),
 	port = 1338,
 	staticFiles = {};
 
@@ -16,7 +15,7 @@ fs.readdirSync(baseDirectory)
 		f
 		&& f[0] !== '.'
 		&& (f.endsWith('.css')
-		|| f.endsWith('.html'))
+		|| f.endsWith('.html')),
 	)
 	.forEach(f => {
 		staticFiles['/' + (f.endsWith('.html') ? f.substr(0, f.lastIndexOf('.')) : f)] = '/' + f;
@@ -25,8 +24,18 @@ fs.readdirSync(baseDirectory)
 http
 	.createServer((request, response) => {
 		try {
-			let requestUrl = url.parse(request.url),
-				fsPath = path.normalize(requestUrl.pathname);
+			if (!request.url) {
+				response.writeHead(500);
+				response.end();
+				return;
+			}
+			let requestUrl = url.parse(request.url);
+			if (!requestUrl.pathname) {
+				response.writeHead(500);
+				response.end();
+				return;
+			}
+			let fsPath = path.normalize(requestUrl.pathname);
 			switch (fsPath) {
 				// Root
 				case '/':
@@ -35,11 +44,11 @@ http
 				// API
 				case '/payload.json':
 					response.writeHead(200);
-					response.write(JSON.stringify(exports.payload));
+					response.write(JSON.stringify(payload));
 					response.end();
 					return;
 				case '/save-rotations':
-					constants.KNOWN_RPS = exports.payload.RotationsAvg;
+					constants.setKnownRPS(payload.RotationsAvg);
 					response.writeHead(200);
 					response.write('Saved!');
 					response.end();
@@ -47,8 +56,7 @@ http
 				default:
 					if (staticFiles[fsPath]) {
 						fsPath = staticFiles[fsPath];
-					}
-					else {
+					} else {
 						response.writeHead(404);
 						response.write('Not found!');
 						response.end();
@@ -64,8 +72,7 @@ http
 				response.end();
 			});
 			fileStream.pipe(response);
-		}
-		catch (e) {
+		} catch (e) {
 			response.writeHead(500);
 			response.end();
 			console.log(e.stack);
