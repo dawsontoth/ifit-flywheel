@@ -46,9 +46,7 @@ function receivedData(data) {
 
 function updateCalculations() {
 	let timeSinceLastPass = lastPassedAt
-		? constants.USE_HR_TIME
-			? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
-			: (Date.now() - lastPassedAt)
+		? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
 		: Number.MAX_SAFE_INTEGER,
 		sampledTime = 0,
 		trimAfter = -1,

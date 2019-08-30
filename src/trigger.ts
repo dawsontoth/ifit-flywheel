@@ -34,13 +34,9 @@ function triggerPassed(err) {
 		// TODO: Do something with the error.
 		return;
 	}
-	let passedAt = constants.USE_HR_TIME
-		? process.hrtime()
-		: Date.now();
+	let passedAt = process.hrtime();
 	if (lastPassedAt) {
-		let elapsedTime = constants.USE_HR_TIME
-			? utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt))
-			: Date.now() - lastPassedAt;
+		let elapsedTime = utils.convertElapsedToNanoseconds(process.hrtime(lastPassedAt));
 		shouldDump && rawHistoryForDump.push(elapsedTime);
 		if (passHistory.length > constants.PASS_AVERAGE_PERIOD) {
 			let recentPassesAverage = passHistory.slice(0, constants.PASS_AVERAGE_PERIOD).reduce((a, b) => a + b, 0) / constants.PASS_AVERAGE_PERIOD,
