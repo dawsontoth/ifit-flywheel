@@ -16,12 +16,12 @@ describe.each`
   ${'10mph.json'} | ${10}
 `('handles $file data', ({ file, expected }) => {
 
-	it('aggregates speed accurately with the entire data set', () => {
+	test('aggregates speed accurately with the entire data set', () => {
 		const passes = require(`../../test/data/${file}`);
 		checkPasses(passes);
 	});
 
-	it('computes accurate rolling speeds', () => {
+	test('computes accurate rolling speeds', () => {
 		const passes = require(`../../test/data/${file}`);
 		const rollingPasses: number[] = [];
 		passes.forEach(pass => {
