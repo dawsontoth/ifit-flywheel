@@ -7,42 +7,18 @@ test('handles zero case', () => {
 	expect(rotationsPerSecond).toBe(0);
 });
 
-test('handles 2mph data', () => {
-	const data = require('../../test/data/2mph.json');
+test.each`
+  file       | expected
+  ${'2mph.json'}  | ${2}
+  ${'4mph.json'}  | ${4}
+  ${'6mph.json'}  | ${6}
+  ${'10mph.json'} | ${10}
+`('handles $file data', ({ file, expected }) => {
+	const data = require(`../../test/data/${file}`);
 	const { speed, rotationsPerSecond } = calculateRawSpeed(
 		sum(data),
 		data.length,
 	);
-	expect(speed).toBeCloseTo(2, 1);
-	expect(rotationsPerSecond).toBeCloseTo(10.98);
-});
-
-test('handles 4mph data', () => {
-	const data = require('../../test/data/4mph.json');
-	const { speed, rotationsPerSecond } = calculateRawSpeed(
-		sum(data),
-		data.length,
-	);
-	expect(speed).toBeCloseTo(4, 1);
-	expect(rotationsPerSecond).toBeCloseTo(21.96);
-});
-
-test('handles 6mph data', () => {
-	const data = require('../../test/data/6mph.json');
-	const { speed, rotationsPerSecond } = calculateRawSpeed(
-		sum(data),
-		data.length,
-	);
-	expect(speed).toBeCloseTo(6, 1);
-	expect(rotationsPerSecond).toBeCloseTo(32.94);
-});
-
-test('handles 10mph data', () => {
-	const data = require('../../test/data/10mph.json');
-	const { speed, rotationsPerSecond } = calculateRawSpeed(
-		sum(data),
-		data.length,
-	);
-	expect(speed).toBeCloseTo(10, 1);
-	expect(rotationsPerSecond).toBeCloseTo(54.87);
+	expect(speed).toBeCloseTo(expected, 1);
+	expect(rotationsPerSecond).toBeCloseTo(expected * 5.49, 1);
 });
